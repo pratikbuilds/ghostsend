@@ -30,6 +30,7 @@ import {
   withdrawSOL,
   WalletAdapter,
 } from "@/lib/privacy-cash";
+import { PaymentLinksAPI, PrivacyCashAPI } from "@/lib/api-service";
 import type { PaymentLinkPublicInfo } from "@/lib/payment-links-types";
 
 const RPC_URL =
@@ -105,26 +106,25 @@ export function PaymentLinkSender({ paymentId }: PaymentLinkSenderProps) {
     });
   }, [verboseLogs, addLog]);
 
-  // Load payment link details
-  useEffect(() => {
-    const fetchPaymentLink = async () => {
-      try {
-        const response = await fetch(`/api/payment-links/${paymentId}`);
-        const data = await response.json();
+   // Load payment link details
+   useEffect(() => {
+     const fetchPaymentLink = async () => {
+       try {
+         const result = await PaymentLinksAPI.getPaymentLink(paymentId);
 
-        if (!data.success) {
-          throw new Error(data.error || "Payment link not found");
-        }
+         if (!result.success || !result.data) {
+           throw new Error(result.error || "Payment link not found");
+         }
 
-        setPaymentLink(data.paymentLink);
+         setPaymentLink(result.data.paymentLink);
 
-        // Set default amount if fixed
-        if (
-          data.paymentLink.amountType === "fixed" &&
-          data.paymentLink.fixedAmount
-        ) {
-          setAmount((data.paymentLink.fixedAmount / 1e9).toString());
-        }
+         // Set default amount if fixed
+         if (
+           result.data.paymentLink.amountType === "fixed" &&
+           result.data.paymentLink.fixedAmount
+         ) {
+           setAmount((result.data.paymentLink.fixedAmount / 1e9).toString());
+         }
       } catch (err) {
         setLinkError(
           err instanceof Error ? err.message : "Failed to load payment link"
@@ -287,75 +287,56 @@ export function PaymentLinkSender({ paymentId }: PaymentLinkSenderProps) {
         recipientPreview: "****...****",
       });
 
-      const recipientResponse = await fetch(
-        `/api/payment-links/${paymentId}/recipient`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            amount: amountLamports,
-          }),
-        }
-      );
+       const recipientResult = await PaymentLinksAPI.getRecipient(
+         paymentId,
+         amountLamports
+       );
 
-      const recipientData = await recipientResponse.json();
+       if (!recipientResult.success || !recipientResult.data) {
+         throw new Error(recipientResult.error || "Failed to get recipient");
+       }
 
-      if (!recipientData.success) {
-        throw new Error(recipientData.error || "Failed to get recipient");
-      }
+       const useBackendWithdraw =
+         process.env.NEXT_PUBLIC_PRIVACYCASH_WITHDRAW_BACKEND === "true";
 
-      const useBackendWithdraw =
-        process.env.NEXT_PUBLIC_PRIVACYCASH_WITHDRAW_BACKEND === "true";
+       const withdrawResult = useBackendWithdraw
+         ? await (async () => {
+             addLog("Using backend withdraw (signature sent to server)...");
+             setStatus("awaitingSignature");
+             const existingSignature = getSessionSignature(
+               walletAdapter.publicKey
+             );
+             const signature =
+               existingSignature ?? (await signSessionMessage(walletAdapter));
+             if (existingSignature) {
+               addLog("Reusing existing session signature.");
+             }
+             const signatureBase64 = toBase64(signature);
+             setStatus("withdrawing");
 
-      const withdrawResult = useBackendWithdraw
-        ? await (async () => {
-            addLog("Using backend withdraw (signature sent to server)...");
-            setStatus("awaitingSignature");
-            const existingSignature = getSessionSignature(
-              walletAdapter.publicKey
-            );
-            const signature =
-              existingSignature ?? (await signSessionMessage(walletAdapter));
-            if (existingSignature) {
-              addLog("Reusing existing session signature.");
-            }
-            const signatureBase64 = toBase64(signature);
-            setStatus("withdrawing");
+             const withdrawApiResult = await PrivacyCashAPI.withdraw({
+               amountLamports,
+               recipient: recipientResult.data!.recipientAddress,
+               publicKey: walletAdapter.publicKey.toBase58(),
+               signature: signatureBase64,
+             });
 
-            const response = await fetch("/api/privacy-cash/withdraw", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                amountLamports,
-                recipient: recipientData.recipientAddress,
-                publicKey: walletAdapter.publicKey.toBase58(),
-                signature: signatureBase64,
-              }),
-            });
-
-            const data = await response.json();
-            addLog(
-              `Backend withdraw response: ${JSON.stringify(
-                data?.success ? data.result : data
-              )}`
-            );
-            if (!data.success) {
-              throw new Error(data.error || "Backend withdraw failed");
-            }
-            return data.result as {
-              isPartial: boolean;
-              tx: string;
-              recipient: string;
-              amount_in_lamports: number;
-              fee_in_lamports: number;
-            };
-          })()
-        : await withdrawSOL({
-            connection,
-            wallet: walletAdapter,
-            amount_in_lamports: amountLamports,
-            recipient: recipientData.recipientAddress,
-          });
+             addLog(
+               `Backend withdraw response: ${JSON.stringify(
+                 withdrawApiResult?.success ? withdrawApiResult.data?.result : withdrawApiResult
+               )}`
+             );
+             if (!withdrawApiResult.success) {
+               throw new Error(withdrawApiResult.error || "Backend withdraw failed");
+             }
+             return withdrawApiResult.data!.result;
+           })()
+         : await withdrawSOL({
+             connection,
+             wallet: walletAdapter,
+             amount_in_lamports: amountLamports,
+             recipient: recipientResult.data!.recipientAddress,
+           });
 
       addLog(`Withdrawal successful! TX: ${withdrawResult.tx}`, "success");
       addLog(
@@ -370,19 +351,14 @@ export function PaymentLinkSender({ paymentId }: PaymentLinkSenderProps) {
       );
       addLog(`Explorer: https://explorer.solana.com/tx/${withdrawResult.tx}`);
 
-      const completeResponse = await fetch(
-        `/api/payment-links/${paymentId}/complete`,
-        { method: "POST" }
-      );
+       const completeResult = await PaymentLinksAPI.completePayment(paymentId);
 
-      const completeData = await completeResponse.json();
-
-      if (!completeData.success) {
-        addLog(
-          `Failed to mark payment as complete: ${completeData.error}`,
-          "error"
-        );
-      }
+       if (!completeResult.success) {
+         addLog(
+           `Failed to mark payment as complete: ${completeResult.error}`,
+           "error"
+         );
+       }
 
       setTxSignature(withdrawResult.tx);
       const cluster = process.env.NEXT_PUBLIC_SOLANA_NETWORK || "mainnet-beta";
