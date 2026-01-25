@@ -2,6 +2,7 @@ import "dotenv/config";
 import Fastify from "fastify";
 import path from "path";
 import { Connection, PublicKey } from "@solana/web3.js";
+import { paymentLinksRoutes } from "./routes/payment-links";
 
 type WithdrawRequest = {
   amountLamports: number;
@@ -115,6 +116,9 @@ async function buildSessionFromSignature(
 }
 
 const app = Fastify({ logger: true });
+
+// Register payment links routes
+app.register(paymentLinksRoutes);
 
 app.post<{ Body: WithdrawRequest }>("/withdraw", async (request, reply) => {
   await warmupPromise;
