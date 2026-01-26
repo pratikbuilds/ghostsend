@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { CopyButton } from "@/components/ui/copy-button";
+import { PaymentLinksAPI } from "@/lib/api-service";
 import type { PaymentLinkMetadata } from "@/lib/payment-links-types";
 
 export function PaymentLinkCreator() {
@@ -84,19 +85,16 @@ export function PaymentLinkCreator() {
         body.message = message.trim();
       }
 
-      const response = await fetch("/api/payment-links", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
+      const result = await PaymentLinksAPI.createPaymentLink(body);
 
-      const data = await response.json();
-
-      if (!data.success) {
-        throw new Error(data.error || "Failed to create payment link");
+      if (!result.success || !result.data) {
+        throw new Error(result.error || "Failed to create payment link");
       }
 
-      setCreatedLink({ metadata: data.paymentLink, url: data.url });
+      setCreatedLink({ 
+        metadata: result.data.paymentLink, 
+        url: result.data.url 
+      });
 
       // Reset form
       setFixedAmount("");
