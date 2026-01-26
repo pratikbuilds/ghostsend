@@ -15,6 +15,15 @@ interface GetRecipientParams {
   paymentId: string;
 }
 
+interface PaymentLinkQuery {
+  recipientAddress: string;
+}
+
+interface CompletePaymentRequest {
+  txSignature: string;
+  amount: number;
+}
+
 interface PaymentIdParams {
   paymentId: string;
 }
@@ -23,6 +32,65 @@ interface PaymentIdParams {
  * Register payment links routes
  */
 export async function paymentLinksRoutes(app: FastifyInstance) {
+  // List payment links for a recipient
+  app.get<{ Querystring: PaymentLinkQuery }>(
+    '/payment-links',
+    async (request, reply) => {
+      try {
+        const { recipientAddress } = request.query;
+
+        if (!recipientAddress) {
+          return reply.status(400).send({
+            success: false,
+            error: 'Recipient address is required',
+          });
+        }
+
+        const paymentLinks = PaymentLinksStore.listPaymentLinksByRecipient(recipientAddress);
+
+        return reply.send({
+          success: true,
+          paymentLinks,
+        });
+      } catch (error) {
+        request.log.error({ msg: 'Error listing payment links', error: error instanceof Error ? error.message : String(error) });
+        return reply.status(500).send({
+          success: false,
+          error: 'Failed to list payment links',
+        });
+      }
+    }
+  );
+
+  // List payment history for a recipient
+  app.get<{ Querystring: PaymentLinkQuery }>(
+    '/payment-links/history',
+    async (request, reply) => {
+      try {
+        const { recipientAddress } = request.query;
+
+        if (!recipientAddress) {
+          return reply.status(400).send({
+            success: false,
+            error: 'Recipient address is required',
+          });
+        }
+
+        const payments = PaymentLinksStore.listPaymentRecordsByRecipient(recipientAddress);
+
+        return reply.send({
+          success: true,
+          payments,
+        });
+      } catch (error) {
+        request.log.error({ msg: 'Error listing payment history', error: error instanceof Error ? error.message : String(error) });
+        return reply.status(500).send({
+          success: false,
+          error: 'Failed to list payment history',
+        });
+      }
+    }
+  );
   // Create payment link
   app.post<{ Body: CreatePaymentLinkRequest }>(
     '/payment-links',
@@ -112,11 +180,12 @@ export async function paymentLinksRoutes(app: FastifyInstance) {
   );
 
   // Complete payment
-  app.post<{ Params: PaymentIdParams }>(
+  app.post<{ Params: PaymentIdParams; Body: CompletePaymentRequest }>(
     '/payment-links/:paymentId/complete',
     async (request, reply) => {
       try {
         const { paymentId } = request.params;
+        const { txSignature, amount } = request.body;
 
         const paymentLink = PaymentLinksStore.getPaymentLink(paymentId);
 
@@ -126,6 +195,28 @@ export async function paymentLinksRoutes(app: FastifyInstance) {
             error: 'Payment link not found',
           });
         }
+
+        if (!txSignature) {
+          return reply.status(400).send({
+            success: false,
+            error: 'Transaction signature is required',
+          });
+        }
+
+        const validation = PaymentLinksStore.validateAmount(paymentId, amount);
+        if (!validation.valid) {
+          return reply.status(400).send({
+            success: false,
+            error: validation.error,
+          });
+        }
+
+        PaymentLinksStore.addPaymentRecord(
+          paymentId,
+          amount,
+          paymentLink.tokenType,
+          txSignature
+        );
 
         // Increment usage count (marks one-time links as completed)
         PaymentLinksStore.incrementUsageCount(paymentId);
@@ -186,6 +277,43 @@ export async function paymentLinksRoutes(app: FastifyInstance) {
         return reply.status(500).send({
           success: false,
           error: 'Failed to get recipient',
+        });
+      }
+    }
+  );
+
+  // Delete a payment link (and its history)
+  app.delete<{ Params: PaymentIdParams; Body: { recipientAddress: string } }>(
+    '/payment-links/:paymentId',
+    async (request, reply) => {
+      try {
+        const { paymentId } = request.params;
+        const { recipientAddress } = request.body;
+
+        const paymentLink = PaymentLinksStore.getPaymentLink(paymentId);
+
+        if (!paymentLink) {
+          return reply.status(404).send({
+            success: false,
+            error: 'Payment link not found',
+          });
+        }
+
+        if (paymentLink.recipientAddress !== recipientAddress) {
+          return reply.status(403).send({
+            success: false,
+            error: 'Unauthorized',
+          });
+        }
+
+        PaymentLinksStore.deletePaymentLink(paymentId);
+
+        return reply.send({ success: true });
+      } catch (error) {
+        request.log.error({ msg: 'Error deleting payment link', error: error instanceof Error ? error.message : String(error) });
+        return reply.status(500).send({
+          success: false,
+          error: 'Failed to delete payment link',
         });
       }
     }

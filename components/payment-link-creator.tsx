@@ -1,40 +1,85 @@
 "use client";
 
-import { useState } from "react";
-import { useWallet } from "@jup-ag/wallet-adapter";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { useEffect, useState } from "react";
+import { useUnifiedWalletContext, useWallet } from "@jup-ag/wallet-adapter";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { CopyButton } from "@/components/ui/copy-button";
+import { AmountTokenInput } from "@/components/ui/amount-token-input";
 import { PaymentLinksAPI } from "@/lib/api-service";
-import type { PaymentLinkMetadata } from "@/lib/payment-links-types";
+import type { PaymentLinkMetadata, TokenType } from "@/lib/payment-links-types";
+import { Link2 } from "lucide-react";
 
-export function PaymentLinkCreator() {
-  const { publicKey } = useWallet();
+type CreatedLink = { metadata: PaymentLinkMetadata; url: string };
 
-  // Form state
-  const [tokenType, setTokenType] = useState<string>("sol");
-  const [amountType, setAmountType] = useState<"fixed" | "flexible">("fixed");
-  const [fixedAmount, setFixedAmount] = useState("");
-  const [minAmount, setMinAmount] = useState("");
-  const [maxAmount, setMaxAmount] = useState("");
-  const [reusable, setReusable] = useState(false);
-  const [maxUsageCount, setMaxUsageCount] = useState("");
-  const [label, setLabel] = useState("");
+interface PaymentLinkCreatorProps {
+  onCreated?: (created: CreatedLink) => void;
+}
+
+export function PaymentLinkCreator({ onCreated }: PaymentLinkCreatorProps) {
+  const { publicKey, connected, connecting, disconnect } = useWallet();
+  const { setShowModal } = useUnifiedWalletContext();
+
+  const [tokenType, setTokenType] = useState<TokenType>("sol");
+  const [amount, setAmount] = useState("");
   const [message, setMessage] = useState("");
+  const [recipientAddress, setRecipientAddress] = useState("");
 
-  // UI state
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [createdLink, setCreatedLink] = useState<{ metadata: PaymentLinkMetadata; url: string } | null>(null);
+  const [createdLink, setCreatedLink] = useState<CreatedLink | null>(null);
+
+  const address = publicKey?.toBase58();
+  const shortAddress = address
+    ? `${address.slice(0, 4)}...${address.slice(-4)}`
+    : null;
+
+  useEffect(() => {
+    if (address && !recipientAddress) {
+      setRecipientAddress(address);
+    }
+  }, [address, recipientAddress]);
+
+  const handleCopyAddress = async () => {
+    if (!address) return;
+    try {
+      await navigator.clipboard.writeText(address);
+    } catch {
+      // ignore clipboard failures (e.g. http / permissions)
+    }
+  };
+
+  const handleDisconnect = async () => {
+    try {
+      await disconnect?.();
+    } catch {
+      // ignore disconnect failures
+    }
+  };
 
   const handleCreate = async () => {
-    if (!publicKey) {
-      setError("Please connect your wallet");
+    const resolvedRecipient = recipientAddress.trim() || address;
+    if (!resolvedRecipient) {
+      setError("Enter a recipient address or connect a wallet");
+      setShowModal(true);
       return;
     }
 
@@ -42,48 +87,19 @@ export function PaymentLinkCreator() {
     setError(null);
 
     try {
-      const body: any = {
-        recipientAddress: publicKey.toBase58(),
+      const amountSol = parseFloat(amount);
+      if (isNaN(amountSol) || amountSol <= 0) {
+        throw new Error("Please enter a valid amount");
+      }
+
+      const body = {
+        recipientAddress: resolvedRecipient,
         tokenType,
-        amountType,
-        reusable,
+        amountType: "fixed" as const,
+        fixedAmount: Math.floor(amountSol * 1e9),
+        reusable: false,
+        message: message.trim() || undefined,
       };
-
-      if (amountType === "fixed") {
-        const amountSol = parseFloat(fixedAmount);
-        if (isNaN(amountSol) || amountSol <= 0) {
-          throw new Error("Please enter a valid amount");
-        }
-        body.fixedAmount = Math.floor(amountSol * 1e9); // Convert SOL to lamports
-      } else {
-        if (minAmount) {
-          const minSol = parseFloat(minAmount);
-          if (!isNaN(minSol)) {
-            body.minAmount = Math.floor(minSol * 1e9);
-          }
-        }
-        if (maxAmount) {
-          const maxSol = parseFloat(maxAmount);
-          if (!isNaN(maxSol)) {
-            body.maxAmount = Math.floor(maxSol * 1e9);
-          }
-        }
-      }
-
-      if (reusable && maxUsageCount) {
-        const count = parseInt(maxUsageCount);
-        if (!isNaN(count) && count > 0) {
-          body.maxUsageCount = count;
-        }
-      }
-
-      if (label.trim()) {
-        body.label = label.trim();
-      }
-
-      if (message.trim()) {
-        body.message = message.trim();
-      }
 
       const result = await PaymentLinksAPI.createPaymentLink(body);
 
@@ -91,20 +107,20 @@ export function PaymentLinkCreator() {
         throw new Error(result.error || "Failed to create payment link");
       }
 
-      setCreatedLink({ 
-        metadata: result.data.paymentLink, 
-        url: result.data.url 
-      });
+      const created = {
+        metadata: result.data.paymentLink,
+        url: result.data.url,
+      };
 
-      // Reset form
-      setFixedAmount("");
-      setMinAmount("");
-      setMaxAmount("");
-      setLabel("");
+      setCreatedLink(created);
+      onCreated?.(created);
+
+      setAmount("");
       setMessage("");
-      setMaxUsageCount("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create payment link");
+      setError(
+        err instanceof Error ? err.message : "Failed to create payment link",
+      );
     } finally {
       setLoading(false);
     }
@@ -117,171 +133,15 @@ export function PaymentLinkCreator() {
 
   return (
     <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <CardTitle>Create Payment Link</CardTitle>
-          <CardDescription>
-            Generate a private payment link. Recipients won't see your wallet address until they pay.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Token Type */}
-          <div className="space-y-2">
-            <Label>Token</Label>
-            <Select value={tokenType} onValueChange={setTokenType}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="sol">SOL</SelectItem>
-                <SelectItem value="usdc" disabled>
-                  USDC (Coming Soon)
-                </SelectItem>
-                <SelectItem value="usdt" disabled>
-                  USDT (Coming Soon)
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Amount Type */}
-          <div className="space-y-2">
-            <Label>Amount Type</Label>
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant={amountType === "fixed" ? "default" : "outline"}
-                onClick={() => setAmountType("fixed")}
-                className="flex-1"
-              >
-                Fixed
-              </Button>
-              <Button
-                type="button"
-                variant={amountType === "flexible" ? "default" : "outline"}
-                onClick={() => setAmountType("flexible")}
-                className="flex-1"
-              >
-                Flexible
-              </Button>
-            </div>
-          </div>
-
-          {/* Fixed Amount */}
-          {amountType === "fixed" && (
-            <div className="space-y-2">
-              <Label>Amount (SOL)</Label>
-              <Input
-                type="number"
-                step="0.001"
-                placeholder="1.5"
-                value={fixedAmount}
-                onChange={(e) => setFixedAmount(e.target.value)}
-              />
-            </div>
-          )}
-
-          {/* Flexible Amount Range */}
-          {amountType === "flexible" && (
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Min Amount (SOL, optional)</Label>
-                <Input
-                  type="number"
-                  step="0.001"
-                  placeholder="0.1"
-                  value={minAmount}
-                  onChange={(e) => setMinAmount(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Max Amount (SOL, optional)</Label>
-                <Input
-                  type="number"
-                  step="0.001"
-                  placeholder="10"
-                  value={maxAmount}
-                  onChange={(e) => setMaxAmount(e.target.value)}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Reusable */}
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="reusable"
-              checked={reusable}
-              onChange={(e) => setReusable(e.target.checked)}
-              className="h-4 w-4"
-            />
-            <Label htmlFor="reusable">Reusable link (can accept multiple payments)</Label>
-          </div>
-
-          {/* Max Usage Count */}
-          {reusable && (
-            <div className="space-y-2">
-              <Label>Max Usage Count (optional)</Label>
-              <Input
-                type="number"
-                placeholder="10"
-                value={maxUsageCount}
-                onChange={(e) => setMaxUsageCount(e.target.value)}
-              />
-            </div>
-          )}
-
-          {/* Label */}
-          <div className="space-y-2">
-            <Label>Label (optional)</Label>
-            <Input
-              placeholder="Coffee donation"
-              value={label}
-              onChange={(e) => setLabel(e.target.value)}
-              maxLength={50}
-            />
-          </div>
-
-          {/* Message */}
-          <div className="space-y-2">
-            <Label>Message (optional)</Label>
-            <Textarea
-              placeholder="Thank you for your support!"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              maxLength={200}
-              rows={3}
-            />
-          </div>
-
-          {/* Error */}
-          {error && (
-            <div className="p-3 bg-red-500/10 border border-red-500/20 rounded text-red-500 text-sm">
-              {error}
-            </div>
-          )}
-
-          {/* Create Button */}
-          <Button onClick={handleCreate} disabled={loading || !publicKey} className="w-full">
-            {loading ? "Creating..." : "Create Payment Link"}
-          </Button>
-
-          {!publicKey && (
-            <p className="text-sm text-muted-foreground text-center">Connect your wallet to create payment links</p>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Created Link Display */}
-      {createdLink && (
-        <Card>
-          <CardHeader>
+      {createdLink ? (
+        <Card className="border-border/60 bg-card/80">
+          <CardHeader className="space-y-2 pb-4">
             <CardTitle>Payment Link Created!</CardTitle>
-            <CardDescription>Share this link to receive payments</CardDescription>
+            <CardDescription>
+              Share this link to receive payments
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Link */}
             <div className="space-y-2">
               <Label>Payment Link</Label>
               <div className="flex gap-2">
@@ -290,36 +150,157 @@ export function PaymentLinkCreator() {
               </div>
             </div>
 
-            {/* Details */}
             <div className="space-y-2 p-4 bg-muted rounded-lg">
               <div className="flex justify-between">
                 <span className="text-sm text-muted-foreground">Token:</span>
-                <Badge variant="secondary">{createdLink.metadata.tokenType.toUpperCase()}</Badge>
+                <Badge variant="secondary">
+                  {createdLink.metadata.tokenType.toUpperCase()}
+                </Badge>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-muted-foreground">Amount:</span>
                 <span className="text-sm font-medium">
-                  {createdLink.metadata.amountType === "fixed"
-                    ? formatAmount(createdLink.metadata.fixedAmount)
-                    : "Flexible"}
+                  {formatAmount(createdLink.metadata.fixedAmount)}
                 </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">Type:</span>
-                <span className="text-sm font-medium">
-                  {createdLink.metadata.reusable ? "Reusable" : "One-time"}
-                </span>
-              </div>
-              {createdLink.metadata.label && (
+              {createdLink.metadata.message && (
                 <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Label:</span>
-                  <span className="text-sm font-medium">{createdLink.metadata.label}</span>
+                  <span className="text-sm text-muted-foreground">
+                    Message:
+                  </span>
+                  <span className="text-sm font-medium">
+                    {createdLink.metadata.message}
+                  </span>
                 </div>
               )}
             </div>
 
-            <Button onClick={() => setCreatedLink(null)} variant="outline" className="w-full">
+            <Button
+              onClick={() => setCreatedLink(null)}
+              variant="outline"
+              className="w-full"
+            >
               Create Another Link
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="border-border/60 bg-card/80">
+          <CardHeader className="space-y-2 pb-4">
+            <CardTitle>Create Payment Link</CardTitle>
+            <CardDescription>
+              Generate a private payment link. Recipients won&apos;t see your
+              wallet address publicly.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/30 px-3 py-2">
+              <span className="text-xs text-muted-foreground">
+                Connected Wallet
+              </span>
+              {connected && address ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-2 text-xs font-mono"
+                    >
+                      {shortAddress}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuLabel>Wallet</DropdownMenuLabel>
+                    <DropdownMenuItem onSelect={handleCopyAddress}>
+                      Copy address
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      variant="destructive"
+                      onSelect={handleDisconnect}
+                    >
+                      Disconnect
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">
+                    {connecting ? "Connecting..." : "Not connected"}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={connecting}
+                    className="h-7 px-2 text-xs"
+                    onClick={() => setShowModal(true)}
+                  >
+                    Connect wallet
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>Recipient address</Label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-xs"
+                  onClick={() => address && setRecipientAddress(address)}
+                  disabled={!address}
+                >
+                  Use connected wallet
+                </Button>
+              </div>
+              <Input
+                value={recipientAddress}
+                onChange={(event) => setRecipientAddress(event.target.value)}
+                placeholder="Paste a Solana address"
+                autoComplete="off"
+              />
+              <p className="text-xs text-muted-foreground">
+                Connect a wallet or paste the address you want to receive funds.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Amount</Label>
+              <AmountTokenInput
+                amount={amount}
+                onAmountChange={setAmount}
+                token={tokenType}
+                onTokenChange={setTokenType}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Message (optional)</Label>
+              <Textarea
+                placeholder="Thanks!"
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                maxLength={200}
+                rows={3}
+              />
+            </div>
+
+            {error && (
+              <div className="p-3 bg-red-500/10 border border-red-500/20 rounded text-red-500 text-sm">
+                {error}
+              </div>
+            )}
+
+            <Button
+              onClick={handleCreate}
+              disabled={loading}
+              className="w-full h-14 gap-3 text-lg font-semibold"
+            >
+              <Link2 className="h-5 w-5" />
+              {loading ? "Creating..." : "Generate Payment Link"}
             </Button>
           </CardContent>
         </Card>

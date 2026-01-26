@@ -10,6 +10,8 @@ export type AmountType = 'fixed' | 'flexible';
 
 export type PaymentLinkStatus = 'active' | 'completed' | 'disabled';
 
+export type PaymentRecordStatus = 'completed';
+
 /**
  * Payment link metadata stored on backend
  */
@@ -28,6 +30,19 @@ export interface PaymentLinkMetadata {
   status: PaymentLinkStatus;
   usageCount: number;
   maxUsageCount?: number;          // For reusable links with usage limit
+}
+
+/**
+ * Payment record for received payments (creator history)
+ */
+export interface PaymentRecord {
+  id: string;
+  paymentId: string;
+  tokenType: TokenType;
+  amount: number;
+  txSignature: string;
+  completedAt: number;
+  status: PaymentRecordStatus;
 }
 
 /**

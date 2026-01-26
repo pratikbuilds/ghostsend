@@ -11,6 +11,9 @@ import type {
   PaymentLinkMetadata,
   CreatePaymentLinkRequest,
   CreatePaymentLinkResponse,
+  PaymentLinksListResponse,
+  PaymentHistoryResponse,
+  DeletePaymentLinkResponse,
 } from './payment-links-types';
 
 // Get the backend URL from environment variable or default to localhost
@@ -125,7 +128,8 @@ export const PaymentLinksAPI = {
    * Mark payment as complete
    */
   async completePayment(
-    paymentId: string
+    paymentId: string,
+    request: { txSignature: string; amount: number }
   ): Promise<{
     success: boolean;
     data?: { success: boolean };
@@ -133,7 +137,44 @@ export const PaymentLinksAPI = {
   }> {
     return fetchAPI(`/payment-links/${paymentId}/complete`, {
       method: 'POST',
-      body: JSON.stringify({}),
+      body: JSON.stringify(request),
+    });
+  },
+
+  /**
+   * List payment links created by recipient
+   */
+  async listPaymentLinks(
+    recipientAddress: string
+  ): Promise<{ success: boolean; data?: PaymentLinksListResponse; error?: string }> {
+    const query = encodeURIComponent(recipientAddress);
+    return fetchAPI(`/payment-links?recipientAddress=${query}`, {
+      method: 'GET',
+    });
+  },
+
+  /**
+   * List payment history for recipient
+   */
+  async listPaymentHistory(
+    recipientAddress: string
+  ): Promise<{ success: boolean; data?: PaymentHistoryResponse; error?: string }> {
+    const query = encodeURIComponent(recipientAddress);
+    return fetchAPI(`/payment-links/history?recipientAddress=${query}`, {
+      method: 'GET',
+    });
+  },
+
+  /**
+   * Delete payment link
+   */
+  async deletePaymentLink(
+    paymentId: string,
+    recipientAddress: string
+  ): Promise<{ success: boolean; data?: DeletePaymentLinkResponse; error?: string }> {
+    return fetchAPI(`/payment-links/${paymentId}`, {
+      method: 'DELETE',
+      body: JSON.stringify({ recipientAddress }),
     });
   },
 };

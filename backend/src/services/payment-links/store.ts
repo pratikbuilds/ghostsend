@@ -10,10 +10,13 @@ import type {
   PaymentLinkMetadata,
   PaymentLinkPublicInfo,
   CreatePaymentLinkRequest,
+  PaymentRecord,
+  TokenType,
 } from '../../types/payment-links';
 
 // In-memory store
 const paymentLinks = new Map<string, PaymentLinkMetadata>();
+const paymentRecords: PaymentRecord[] = [];
 
 /**
  * Generate a unique payment ID
@@ -178,5 +181,53 @@ export const PaymentLinksStore = {
     return Array.from(paymentLinks.values()).filter(
       (link) => link.recipientAddress === recipientAddress
     );
+  },
+
+  /**
+   * Add a payment record for creator history
+   */
+  addPaymentRecord(
+    paymentId: string,
+    amount: number,
+    tokenType: TokenType,
+    txSignature: string
+  ): PaymentRecord {
+    const record: PaymentRecord = {
+      id: nanoid(12),
+      paymentId,
+      tokenType,
+      amount,
+      txSignature,
+      completedAt: Date.now(),
+      status: 'completed',
+    };
+
+    paymentRecords.push(record);
+
+    return record;
+  },
+
+  /**
+   * List payment records for a recipient
+   */
+  listPaymentRecordsByRecipient(recipientAddress: string): PaymentRecord[] {
+    const recipientLinks = new Set(
+      this.listPaymentLinksByRecipient(recipientAddress).map((link) => link.paymentId)
+    );
+
+    return paymentRecords.filter((record) => recipientLinks.has(record.paymentId));
+  },
+
+  /**
+   * Delete a payment link and its records
+   */
+  deletePaymentLink(paymentId: string): void {
+    paymentLinks.delete(paymentId);
+
+    for (let i = paymentRecords.length - 1; i >= 0; i -= 1) {
+      if (paymentRecords[i].paymentId === paymentId) {
+        paymentRecords.splice(i, 1);
+      }
+    }
   },
 };

@@ -10,6 +10,8 @@ export type AmountType = 'fixed' | 'flexible';
 
 export type PaymentLinkStatus = 'active' | 'completed' | 'disabled';
 
+export type PaymentRecordStatus = 'completed';
+
 /**
  * Payment link metadata stored on backend
  */
@@ -28,6 +30,19 @@ export interface PaymentLinkMetadata {
   status: PaymentLinkStatus;
   usageCount: number;
   maxUsageCount?: number;          // For reusable links with usage limit
+}
+
+/**
+ * Payment record for creator history
+ */
+export interface PaymentRecord {
+  id: string;
+  paymentId: string;
+  tokenType: TokenType;
+  amount: number;
+  txSignature: string;
+  completedAt: number;
+  status: PaymentRecordStatus;
 }
 
 /**
@@ -70,4 +85,18 @@ export interface CreatePaymentLinkResponse {
   success: boolean;
   paymentLink: PaymentLinkMetadata;
   url: string;
+}
+
+export interface PaymentLinksListResponse {
+  success: boolean;
+  paymentLinks: PaymentLinkMetadata[];
+}
+
+export interface PaymentHistoryResponse {
+  success: boolean;
+  payments: PaymentRecord[];
+}
+
+export interface DeletePaymentLinkResponse {
+  success: boolean;
 }

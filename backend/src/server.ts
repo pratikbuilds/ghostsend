@@ -1,5 +1,6 @@
 import "dotenv/config";
 import Fastify from "fastify";
+import cors from "@fastify/cors";
 import path from "path";
 import { Connection, PublicKey } from "@solana/web3.js";
 import { paymentLinksRoutes } from "./routes/payment-links";
@@ -116,6 +117,11 @@ async function buildSessionFromSignature(
 }
 
 const app = Fastify({ logger: true });
+
+app.register(cors, {
+  origin: ["http://localhost:3000"],
+  methods: ["GET", "POST", "DELETE", "OPTIONS"],
+});
 
 // Register payment links routes
 app.register(paymentLinksRoutes);

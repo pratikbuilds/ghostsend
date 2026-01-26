@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@base-ui/react": "^1.0.0",
+    "@radix-ui/react-tabs": "^1.1.2",
     "@jup-ag/wallet-adapter": "^0.2.6",
     "@lightprotocol/hasher.rs": "^0.2.1",
     "@solana/spl-token": "^0.4.14",
