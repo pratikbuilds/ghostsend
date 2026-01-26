@@ -11,8 +11,6 @@
   },
   "dependencies": {
     "@base-ui/react": "^1.0.0",
-    "@hugeicons/core-free-icons": "^3.1.1",
-    "@hugeicons/react": "^1.1.4",
     "@jup-ag/wallet-adapter": "^0.2.6",
     "@lightprotocol/hasher.rs": "^0.2.1",
     "@solana/spl-token": "^0.4.14",
@@ -21,6 +19,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "crypto-browserify": "^3.12.1",
+    "lucide-react": "^0.563.0",
     "nanoid": "^5.1.6",
     "next": "16.1.2",
     "path-browserify": "^1.0.1",

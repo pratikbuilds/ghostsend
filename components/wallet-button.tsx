@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
-import { useWallet } from "@jup-ag/wallet-adapter";
+import { useUnifiedWalletContext, useWallet } from "@jup-ag/wallet-adapter";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -12,19 +12,43 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Wallet } from "lucide-react";
 
-// Dynamic import with SSR disabled - this is critical for wallet adapters
-const UnifiedWalletButton = dynamic(
-  () => import("@jup-ag/wallet-adapter").then((mod) => mod.UnifiedWalletButton),
-  {
-    ssr: false,
-    loading: () => (
-      <Button variant="outline" size="sm" disabled className="min-w-[140px]">
-        <span className="animate-pulse">Loading...</span>
-      </Button>
-    ),
-  }
-);
+function WalletBtn() {
+  const { connected, disconnect, connecting, publicKey } = useWallet();
+  const { setShowModal } = useUnifiedWalletContext();
+
+  return connected ? (
+    <Button
+      variant="outline"
+      size="sm"
+      className="gap-2 text-xs sm:text-sm"
+      onClick={disconnect}
+    >
+      <Wallet className="h-4 w-4" />
+      <span
+        className="hidden sm:inline max-w-[120px] truncate"
+        title={publicKey?.toBase58()}
+      >
+        {publicKey?.toBase58()?.slice(0, 4) +
+          "..." +
+          publicKey?.toBase58()?.slice(-4)}
+      </span>
+      <span className="sm:hidden">Connected</span>
+    </Button>
+  ) : (
+    <Button
+      variant="default"
+      size="sm"
+      className="gap-2 text-xs sm:text-sm"
+      disabled={connecting}
+      onClick={() => setShowModal(true)}
+    >
+      <Wallet className="h-4 w-4" />
+      <span>Connect Wallet</span>
+    </Button>
+  );
+}
 
 function truncateAddress(address: string) {
   if (address.length <= 12) return address;
@@ -32,14 +56,8 @@ function truncateAddress(address: string) {
 }
 
 export function WalletButton() {
-  const [mounted, setMounted] = useState(false);
   const wallet = useWallet();
   const address = wallet.publicKey?.toBase58();
-
-  // Handle SSR hydration - only render wallet UI after mount
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   const handleCopy = async () => {
     if (!address) return;
@@ -58,15 +76,6 @@ export function WalletButton() {
     }
   };
 
-  // Show skeleton during SSR/hydration
-  if (!mounted) {
-    return (
-      <Button variant="outline" size="sm" disabled className="min-w-[140px]">
-        <span className="animate-pulse">Loading...</span>
-      </Button>
-    );
-  }
-
   // Show connecting state
   if (wallet.connecting) {
     return (
@@ -81,7 +90,11 @@ export function WalletButton() {
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="sm" className="font-mono min-w-[140px]">
+          <Button
+            variant="outline"
+            size="sm"
+            className="font-mono min-w-[140px]"
+          >
             {truncateAddress(address)}
           </Button>
         </DropdownMenuTrigger>
@@ -102,7 +115,7 @@ export function WalletButton() {
   // Show connect button
   return (
     <div className="wallet-adapter-button-container">
-      <UnifiedWalletButton />
+      <WalletBtn />
     </div>
   );
 }

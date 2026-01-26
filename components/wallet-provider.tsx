@@ -11,9 +11,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         autoConnect: false,
         env: "mainnet-beta",
         metadata: {
-          name: "Privacy UI",
-          description: "Privacy-preserving Solana transactions",
-          url: "https://privacy-ui.app",
+          name: "GhostSend",
+          description:
+            "GhostSend allows you to accept payments privately and anonymously.",
+          url: "https://ghostsend.xyz",
           iconUrls: ["/favicon.ico"],
         },
         theme: "dark",
