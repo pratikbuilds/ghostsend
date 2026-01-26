@@ -10,31 +10,31 @@ export default function Page() {
   const [activeTab, setActiveTab] = useState<"test" | "links">("test");
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen dot-pattern">
       <Header />
       <main className="container mx-auto px-4 py-8">
         <div className="mx-auto max-w-2xl space-y-6">
           {/* Header */}
           <div>
-            <h1 className="mb-2 text-3xl font-bold tracking-tight">
-              Privacy Cash
+            <h1 className="mb-2 text-3xl font-bold tracking-tight gradient-text">
+              ghostsend
             </h1>
             <p className="mb-6 text-muted-foreground">
-              Private payments on Solana.
+              Private payments on Solana
             </p>
           </div>
 
           {/* Tabs */}
-          <div className="flex gap-2 border-b">
+          <div className="flex gap-2 border-b gradient-border">
             <Button
-              variant={activeTab === "test" ? "default" : "ghost"}
+              variant={activeTab === "test" ? "gradient" : "ghost"}
               onClick={() => setActiveTab("test")}
               className="rounded-b-none"
             >
               Privacy Test
             </Button>
             <Button
-              variant={activeTab === "links" ? "default" : "ghost"}
+              variant={activeTab === "links" ? "gradient" : "ghost"}
               onClick={() => setActiveTab("links")}
               className="rounded-b-none"
             >
