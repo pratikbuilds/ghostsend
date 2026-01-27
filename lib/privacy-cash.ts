@@ -1,17 +1,71 @@
 import { Connection, PublicKey, VersionedTransaction } from "@solana/web3.js";
+import { tokens } from "privacycash/utils";
+import type { SplList, TokenList } from "privacycash/utils";
+import type { TokenType } from "@/lib/payment-links-types";
+
+// Re-export token types (from SDK constants)
+export type { SplList, TokenList };
+export type Token = (typeof tokens)[number];
+// Re-export token list constant from SDK
+export { tokens };
+
+export const tokenDetails: Array<{
+  value: TokenType;
+  label: string;
+  icon: string;
+  note?: string;
+  disabled?: boolean;
+}> = [
+  {
+    value: "sol",
+    label: "SOL",
+    icon: "https://wsrv.nl/?w=32&h=32&url=https%3A%2F%2Fraw.githubusercontent.com%2Fsolana-labs%2Ftoken-list%2Fmain%2Fassets%2Fmainnet%2FSo11111111111111111111111111111111111111112%2Flogo.png&dpr=2&quality=80",
+  },
+  {
+    value: "usdc",
+    label: "USDC",
+    icon: "https://wsrv.nl/?w=32&h=32&url=https%3A%2F%2Fraw.githubusercontent.com%2Fsolana-labs%2Ftoken-list%2Fmain%2Fassets%2Fmainnet%2FEPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v%2Flogo.png&dpr=2&quality=80",
+    note: "Coming Soon",
+    disabled: true,
+  },
+  {
+    value: "usdt",
+    label: "USDT",
+    icon: "https://wsrv.nl/?w=32&h=32&url=https%3A%2F%2Fraw.githubusercontent.com%2Fsolana-labs%2Ftoken-list%2Fmain%2Fassets%2Fmainnet%2FEs9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB%2Flogo.svg&dpr=2&quality=80",
+    note: "Coming Soon",
+    disabled: true,
+  },
+  {
+    value: "zec",
+    label: "ZEC",
+    icon: "https://wsrv.nl/?w=32&h=32&url=https%3A%2F%2Farweave.net%2FQSYqnmB7NYlB7n1R6rz935Y07dlRK0tIuKe2mof5Sho&dpr=2&quality=80",
+    note: "Coming Soon",
+    disabled: true,
+  },
+  {
+    value: "ore",
+    label: "ORE",
+    icon: "https://wsrv.nl/?w=32&h=32&url=https%3A%2F%2Fore.supply%2Fassets%2Ficon.png&dpr=2&quality=80",
+    note: "Coming Soon",
+    disabled: true,
+  },
+  {
+    value: "store",
+    label: "STORE",
+    icon: "https://wsrv.nl/?w=32&h=32&url=https%3A%2F%2Fore.supply%2Fassets%2Ficon-lst.png&dpr=2&quality=80",
+    note: "Coming Soon",
+    disabled: true,
+  },
+];
 
 // Type for the wallet adapter interface
 export interface WalletAdapter {
   publicKey: PublicKey;
   signMessage: (message: Uint8Array) => Promise<Uint8Array>;
   signTransaction: (
-    transaction: VersionedTransaction
+    transaction: VersionedTransaction,
   ) => Promise<VersionedTransaction>;
 }
-
-// Re-export token types (these are just type definitions, safe to import)
-export type TokenList = "sol" | "usdc" | "usdt" | "zec" | "ore" | "store";
-export type SplList = "usdc" | "usdt" | "zec" | "ore" | "store";
 
 // Lazy-loaded modules (to avoid SSR issues with WASM)
 let _sdkUtils: typeof import("privacycash/utils") | null = null;
@@ -53,7 +107,7 @@ const SIGN_MESSAGE = "Privacy Money account sign in";
 /**
  * Get supported tokens list
  */
-export async function getTokens() {
+export async function getTokens(): Promise<typeof tokens> {
   const sdk = await getSDKUtils();
   return sdk.tokens;
 }
@@ -63,7 +117,7 @@ export async function getTokens() {
  * This derives encryption keys from the signature.
  */
 export async function initializeSession(
-  wallet: WalletAdapter
+  wallet: WalletAdapter,
 ): Promise<PrivacyCashSession> {
   if (!wallet.publicKey) {
     throw new Error("Wallet not connected");
@@ -92,7 +146,7 @@ export async function initializeSession(
     throw new Error(
       `Failed to sign message: ${
         err instanceof Error ? err.message : String(err)
-      }`
+      }`,
     );
   }
 
@@ -126,7 +180,7 @@ export async function initializeSession(
  * Useful for sending the signature to a backend for server-side session init.
  */
 export async function signSessionMessage(
-  wallet: WalletAdapter
+  wallet: WalletAdapter,
 ): Promise<Uint8Array> {
   if (!wallet.publicKey) {
     throw new Error("Wallet not connected");
@@ -148,7 +202,7 @@ export async function signSessionMessage(
     throw new Error(
       `Failed to sign message: ${
         err instanceof Error ? err.message : String(err)
-      }`
+      }`,
     );
   }
 
@@ -207,7 +261,7 @@ export async function depositSOL(
   params: OperationParams & {
     amount_in_lamports: number;
     referrer?: string;
-  }
+  },
 ): Promise<{ tx: string }> {
   const { connection, wallet, amount_in_lamports, referrer } = params;
 
@@ -237,7 +291,7 @@ export async function withdrawSOL(
     amount_in_lamports: number;
     recipient?: string;
     referrer?: string;
-  }
+  },
 ): Promise<{
   isPartial: boolean;
   tx: string;
@@ -277,7 +331,7 @@ export async function depositSPLToken(
     base_units?: number;
     amount?: number;
     referrer?: string;
-  }
+  },
 ): Promise<{ tx: string }> {
   const { connection, wallet, mintAddress, base_units, amount, referrer } =
     params;
@@ -312,7 +366,7 @@ export async function withdrawSPLToken(
     amount?: number;
     recipient?: string;
     referrer?: string;
-  }
+  },
 ): Promise<{
   isPartial: boolean;
   tx: string;
@@ -358,7 +412,7 @@ export async function withdrawSPLToken(
 export async function getPrivateSOLBalance(
   params: OperationParams & {
     abortSignal?: AbortSignal;
-  }
+  },
 ): Promise<{ lamports: number }> {
   const { connection, wallet, abortSignal } = params;
 
@@ -383,7 +437,7 @@ export async function getPrivateSPLBalance(
   params: OperationParams & {
     mintAddress: PublicKey | string;
     abortSignal?: AbortSignal;
-  }
+  },
 ): Promise<{
   base_units: number;
   amount: number;

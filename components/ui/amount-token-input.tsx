@@ -10,6 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { tokenDetails } from "@/lib/privacy-cash";
 import type { TokenType } from "@/lib/payment-links-types";
 
 interface AmountTokenInputProps {
@@ -35,6 +36,8 @@ export function AmountTokenInput({
   maxTooltip,
   className,
 }: AmountTokenInputProps) {
+  const selectedToken = tokenDetails.find((option) => option.value === token);
+
   return (
     <div className={cn("space-y-3", className)}>
       <div className="flex items-center gap-3">
@@ -55,16 +58,46 @@ export function AmountTokenInput({
             className="w-24 h-12 border border-border/40 rounded-lg bg-background/50 font-medium"
             aria-label="Token"
           >
-            <SelectValue />
+            <SelectValue>
+              {selectedToken ? (
+                <span className="flex items-center gap-2">
+                  <img
+                    src={selectedToken.icon}
+                    alt={`${selectedToken.label} icon`}
+                    className="h-4 w-4"
+                    loading="lazy"
+                  />
+                  <span>{selectedToken.label}</span>
+                </span>
+              ) : null}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="sol">SOL</SelectItem>
-            <SelectItem value="usdc" disabled>
-              USDC (Coming Soon)
-            </SelectItem>
-            <SelectItem value="usdt" disabled>
-              USDT (Coming Soon)
-            </SelectItem>
+            {tokenDetails.map((option) => (
+              <SelectItem
+                key={option.value}
+                value={option.value}
+                disabled={option.disabled}
+                textValue={option.label}
+              >
+                <span className="flex items-center gap-2">
+                  <img
+                    src={option.icon}
+                    alt={`${option.label} icon`}
+                    className="h-4 w-4"
+                    loading="lazy"
+                  />
+                  <span className="flex items-center gap-2">
+                    <span>{option.label}</span>
+                    {option.note ? (
+                      <span className="text-muted-foreground text-xs">
+                        ({option.note})
+                      </span>
+                    ) : null}
+                  </span>
+                </span>
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
