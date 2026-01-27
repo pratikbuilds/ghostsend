@@ -1,5 +1,6 @@
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { PublicKey } from '@solana/web3.js';
+import { tokens as sdkTokens } from 'privacycash/utils';
 import { PaymentLinksStore } from '../../services/payment-links/store';
 import { 
   CreatePaymentLinkRequest, 
@@ -109,11 +110,15 @@ export async function paymentLinksRoutes(app: FastifyInstance) {
         }
 
         // Validate token type
-        const validTokens = ['sol', 'usdc', 'usdt', 'zec', 'ore', 'store'];
-        if (!validTokens.includes(body.tokenType)) {
+        const validMints = new Set(
+          sdkTokens.map((token) =>
+            typeof token.pubkey === 'string' ? token.pubkey : token.pubkey.toBase58()
+          )
+        );
+        if (!validMints.has(body.tokenMint)) {
           return reply.status(400).send({
             success: false,
-            error: 'Invalid token type',
+            error: 'Invalid token mint',
           });
         }
 
@@ -214,7 +219,7 @@ export async function paymentLinksRoutes(app: FastifyInstance) {
         PaymentLinksStore.addPaymentRecord(
           paymentId,
           amount,
-          paymentLink.tokenType,
+          paymentLink.tokenMint,
           txSignature
         );
 

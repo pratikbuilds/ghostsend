@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { CopyButton } from "@/components/ui/copy-button";
 import { Input } from "@/components/ui/input";
 import type { PaymentLinkMetadata } from "@/lib/payment-links-types";
+import { formatTokenAmount, getTokenByMint } from "@/lib/token-registry";
 
 interface CreatedLinksTabProps {
   links: PaymentLinkMetadata[];
@@ -62,9 +63,10 @@ export function CreatedLinksTab({
         const url = baseUrl ? `${baseUrl}/pay/${link.paymentId}` : "";
         const createdAt = new Date(link.createdAt).toLocaleString();
         const statusLabel = link.status === "completed" ? "Completed" : "Pending";
-        const amountLabel = link.fixedAmount
-          ? `${(link.fixedAmount / 1e9).toFixed(3)} ${link.tokenType.toUpperCase()}`
-          : `0 ${link.tokenType.toUpperCase()}`;
+        const token = getTokenByMint(link.tokenMint);
+        const amountLabel = token
+          ? `${formatTokenAmount(link.fixedAmount ?? 0, token)} ${token.label}`
+          : "Unknown token";
         const canShare = typeof navigator !== "undefined" && Boolean(navigator.share);
 
         return (

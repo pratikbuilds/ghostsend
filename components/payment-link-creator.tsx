@@ -25,7 +25,14 @@ import { Badge } from "@/components/ui/badge";
 import { CopyButton } from "@/components/ui/copy-button";
 import { AmountTokenInput } from "@/components/ui/amount-token-input";
 import { PaymentLinksAPI } from "@/lib/api-service";
-import type { PaymentLinkMetadata, TokenType } from "@/lib/payment-links-types";
+import type { PaymentLinkMetadata, TokenMint } from "@/lib/payment-links-types";
+import {
+  SOL_MINT,
+  formatTokenAmount,
+  getTokenByMint,
+  parseTokenAmountToBaseUnits,
+  tokenRegistry,
+} from "@/lib/token-registry";
 import { Link2 } from "lucide-react";
 
 type CreatedLink = { metadata: PaymentLinkMetadata; url: string };
@@ -38,7 +45,9 @@ export function PaymentLinkCreator({ onCreated }: PaymentLinkCreatorProps) {
   const { publicKey, connected, connecting, disconnect } = useWallet();
   const { setShowModal } = useUnifiedWalletContext();
 
-  const [tokenType, setTokenType] = useState<TokenType>("sol");
+  const [tokenMint, setTokenMint] = useState<TokenMint>(
+    SOL_MINT || tokenRegistry[0]?.mint || "",
+  );
   const [amount, setAmount] = useState("");
   const [message, setMessage] = useState("");
   const [recipientAddress, setRecipientAddress] = useState("");
@@ -92,16 +101,21 @@ export function PaymentLinkCreator({ onCreated }: PaymentLinkCreatorProps) {
     setError(null);
 
     try {
-      const amountSol = parseFloat(amount);
-      if (isNaN(amountSol) || amountSol <= 0) {
+      const token = getTokenByMint(tokenMint);
+      if (!token) {
+        throw new Error("Unsupported token");
+      }
+
+      const baseUnits = parseTokenAmountToBaseUnits(amount, token);
+      if (!Number.isFinite(baseUnits) || baseUnits <= 0) {
         throw new Error("Please enter a valid amount");
       }
 
       const body = {
         recipientAddress: resolvedRecipient,
-        tokenType,
+        tokenMint,
         amountType: "fixed" as const,
-        fixedAmount: Math.floor(amountSol * 1e9),
+        fixedAmount: baseUnits,
         reusable: false,
         message: message.trim() || undefined,
       };
@@ -135,9 +149,11 @@ export function PaymentLinkCreator({ onCreated }: PaymentLinkCreatorProps) {
     }
   };
 
-  const formatAmount = (lamports?: number) => {
-    if (!lamports) return "N/A";
-    return `${(lamports / 1e9).toFixed(3)} SOL`;
+  const formatAmount = (baseUnits?: number, mint?: string) => {
+    if (!baseUnits || !mint) return "N/A";
+    const token = getTokenByMint(mint);
+    if (!token) return "N/A";
+    return `${formatTokenAmount(baseUnits, token)} ${token.label}`;
   };
 
   return (
@@ -163,13 +179,16 @@ export function PaymentLinkCreator({ onCreated }: PaymentLinkCreatorProps) {
               <div className="flex justify-between">
                 <span className="text-sm text-muted-foreground">Token:</span>
                 <Badge variant="secondary">
-                  {createdLink.metadata.tokenType.toUpperCase()}
+                  {getTokenByMint(createdLink.metadata.tokenMint)?.label ?? "Token"}
                 </Badge>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-muted-foreground">Amount:</span>
                 <span className="text-sm font-medium">
-                  {formatAmount(createdLink.metadata.fixedAmount)}
+                  {formatAmount(
+                    createdLink.metadata.fixedAmount,
+                    createdLink.metadata.tokenMint,
+                  )}
                 </span>
               </div>
               {createdLink.metadata.message && (
@@ -278,12 +297,12 @@ export function PaymentLinkCreator({ onCreated }: PaymentLinkCreatorProps) {
 
             <div className="space-y-2">
               <Label>Amount</Label>
-              <AmountTokenInput
-                amount={amount}
-                onAmountChange={setAmount}
-                token={tokenType}
-                onTokenChange={setTokenType}
-              />
+                <AmountTokenInput
+                  amount={amount}
+                  onAmountChange={setAmount}
+                  token={tokenMint}
+                  onTokenChange={setTokenMint}
+                />
             </div>
 
             <div className="space-y-2">

@@ -6,17 +6,44 @@
  */
 
 import { nanoid } from 'nanoid';
+import { tokens as sdkTokens } from 'privacycash/utils';
 import type {
   PaymentLinkMetadata,
   PaymentLinkPublicInfo,
   CreatePaymentLinkRequest,
   PaymentRecord,
-  TokenType,
+  TokenMint,
 } from '../../types/payment-links';
 
 // In-memory store
 const paymentLinks = new Map<string, PaymentLinkMetadata>();
 const paymentRecords: PaymentRecord[] = [];
+
+const tokenByMint = new Map(
+  sdkTokens.map((token) => [
+    typeof token.pubkey === 'string' ? token.pubkey : token.pubkey.toBase58(),
+    token,
+  ])
+);
+
+function getDecimals(unitsPerToken: number) {
+  let decimals = 0;
+  let value = unitsPerToken;
+  while (value > 1 && value % 10 === 0) {
+    decimals += 1;
+    value = value / 10;
+  }
+  return decimals;
+}
+
+function formatAmountForToken(amount: number, tokenMint: string) {
+  const token = tokenByMint.get(tokenMint);
+  if (!token) return `${amount} base units`;
+  const value = amount / token.units_per_token;
+  const decimals = getDecimals(token.units_per_token);
+  const formatted = value.toFixed(Math.min(6, decimals));
+  return `${formatted} ${token.name.toUpperCase()}`;
+}
 
 /**
  * Generate a unique payment ID
@@ -67,7 +94,7 @@ export const PaymentLinksStore = {
     const metadata: PaymentLinkMetadata = {
       paymentId,
       recipientAddress: request.recipientAddress,
-      tokenType: request.tokenType,
+      tokenMint: request.tokenMint,
       amountType: request.amountType,
       fixedAmount: request.fixedAmount,
       minAmount: request.minAmount,
@@ -127,15 +154,33 @@ export const PaymentLinksStore = {
 
     if (link.amountType === 'fixed') {
       if (amount !== link.fixedAmount) {
-        return { valid: false, error: `Amount must be exactly ${link.fixedAmount} lamports` };
+        return {
+          valid: false,
+          error: `Amount must be exactly ${formatAmountForToken(
+            link.fixedAmount ?? 0,
+            link.tokenMint
+          )}`,
+        };
       }
     } else {
       // Flexible amount
       if (link.minAmount && amount < link.minAmount) {
-        return { valid: false, error: `Amount must be at least ${link.minAmount} lamports` };
+        return {
+          valid: false,
+          error: `Amount must be at least ${formatAmountForToken(
+            link.minAmount,
+            link.tokenMint
+          )}`,
+        };
       }
       if (link.maxAmount && amount > link.maxAmount) {
-        return { valid: false, error: `Amount cannot exceed ${link.maxAmount} lamports` };
+        return {
+          valid: false,
+          error: `Amount cannot exceed ${formatAmountForToken(
+            link.maxAmount,
+            link.tokenMint
+          )}`,
+        };
       }
     }
 
@@ -189,13 +234,13 @@ export const PaymentLinksStore = {
   addPaymentRecord(
     paymentId: string,
     amount: number,
-    tokenType: TokenType,
+    tokenMint: TokenMint,
     txSignature: string
   ): PaymentRecord {
     const record: PaymentRecord = {
       id: nanoid(12),
       paymentId,
-      tokenType,
+      tokenMint,
       amount,
       txSignature,
       completedAt: Date.now(),

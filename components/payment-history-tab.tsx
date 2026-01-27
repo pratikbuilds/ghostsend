@@ -3,6 +3,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import type { PaymentRecord } from "@/lib/payment-links-types";
+import { formatTokenAmount, getTokenByMint } from "@/lib/token-registry";
 
 interface PaymentHistoryTabProps {
   payments: PaymentRecord[];
@@ -49,7 +50,10 @@ export function PaymentHistoryTab({
     <div className="space-y-3">
       {payments.map((payment) => {
         const dateLabel = new Date(payment.completedAt).toLocaleString();
-        const amountLabel = `${(payment.amount / 1e9).toFixed(3)} ${payment.tokenType.toUpperCase()}`;
+        const token = getTokenByMint(payment.tokenMint);
+        const amountLabel = token
+          ? `${formatTokenAmount(payment.amount, token)} ${token.label}`
+          : "Unknown token";
         const explorerUrl = `https://explorer.solana.com/tx/${payment.txSignature}`;
 
         return (

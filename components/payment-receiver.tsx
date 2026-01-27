@@ -5,8 +5,10 @@ import { useUnifiedWalletContext, useWallet } from "@jup-ag/wallet-adapter";
 import {
   Connection,
   LAMPORTS_PER_SOL,
+  PublicKey,
   VersionedTransaction,
 } from "@solana/web3.js";
+import { getAssociatedTokenAddress } from "@solana/spl-token";
 import {
   Card,
   CardContent,
@@ -29,15 +31,24 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import {
   depositSOL,
+  depositSPLToken,
   getPrivateSOLBalance,
+  getPrivateSPLBalance,
   getSessionSignature,
   setLogger,
   signSessionMessage,
-  withdrawSOL,
   WalletAdapter,
 } from "@/lib/privacy-cash";
 import { PaymentLinksAPI, PrivacyCashAPI } from "@/lib/api-service";
 import type { PaymentLinkPublicInfo } from "@/lib/payment-links-types";
+import {
+  formatTokenAmount,
+  formatTokenAmountInput,
+  getTokenByMint,
+  getTokenStep,
+  isSolMint,
+  parseTokenAmountToBaseUnits,
+} from "@/lib/token-registry";
 import { Wallet } from "lucide-react";
 import { Typewriter } from "@/components/ui/typewriter";
 import { cn } from "@/lib/utils";
@@ -64,12 +75,19 @@ export function PaymentReceiver({ paymentId }: PaymentReceiverProps) {
   const [amount, setAmount] = useState("");
   const [status, setStatus] = useState<PaymentStatus>("idle");
   const [error, setError] = useState<string | null>(null);
-  const [publicBalance, setPublicBalance] = useState<number | null>(null);
-  const [privateBalance, setPrivateBalance] = useState<number | null>(null);
+  const [publicBalanceBaseUnits, setPublicBalanceBaseUnits] = useState<number | null>(null);
+  const [privateBalanceBaseUnits, setPrivateBalanceBaseUnits] = useState<number | null>(null);
   const [balancesChecked, setBalancesChecked] = useState(false);
   const [logQueue, setLogQueue] = useState<string[]>([]);
   const [displayLogs, setDisplayLogs] = useState<string[]>([]);
   const lastLogRef = useRef<string | null>(null);
+
+  const token = useMemo(
+    () => (paymentLink ? getTokenByMint(paymentLink.tokenMint) : undefined),
+    [paymentLink],
+  );
+
+  const isSolToken = token ? isSolMint(token.mint) : false;
 
   useEffect(() => {
     const fetchPaymentLink = async () => {
@@ -82,8 +100,8 @@ export function PaymentReceiver({ paymentId }: PaymentReceiverProps) {
         const link = result.data.paymentLink;
         setPaymentLink(link);
 
-        if (link.amountType === "fixed" && link.fixedAmount) {
-          setAmount((link.fixedAmount / 1e9).toString());
+        if (link.amountType === "fixed") {
+          setAmount("");
         }
       } catch (err) {
         setLinkError(err instanceof Error ? err.message : "Failed to load payment link");
@@ -94,6 +112,12 @@ export function PaymentReceiver({ paymentId }: PaymentReceiverProps) {
 
     fetchPaymentLink();
   }, [paymentId]);
+
+  useEffect(() => {
+    if (!paymentLink || !token) return;
+    if (paymentLink.amountType !== "fixed" || !paymentLink.fixedAmount) return;
+    setAmount(formatTokenAmountInput(paymentLink.fixedAmount, token));
+  }, [paymentLink, token]);
 
   useEffect(() => {
     setLogger((level, message) => {
@@ -124,22 +148,48 @@ export function PaymentReceiver({ paymentId }: PaymentReceiverProps) {
     };
   }, [publicKey, signMessage, signTransaction]);
 
+  const getPublicTokenBalance = useCallback(
+    async (targetConnection: Connection, owner: PublicKey, mint: string) => {
+      const ata = await getAssociatedTokenAddress(new PublicKey(mint), owner);
+      try {
+        const balance = await targetConnection.getTokenAccountBalance(ata);
+        return Number(balance.value.amount);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        if (message.toLowerCase().includes("could not find account")) {
+          return 0;
+        }
+        throw err;
+      }
+    },
+    [],
+  );
+
   const fetchBalances = useCallback(async () => {
-    if (!publicKey) return;
+    if (!publicKey || !token) return;
     setStatus("checking");
     setError(null);
     setLogQueue((prev) => [...prev, "Info: Requesting signature to check balances..."]);
     try {
-      const [publicLamports, privateResult] = await Promise.all([
-        connection.getBalance(publicKey),
-        (async () => {
-          const walletAdapter = getWalletAdapter();
-          return getPrivateSOLBalance({ connection, wallet: walletAdapter });
-        })(),
-      ]);
+      const walletAdapter = getWalletAdapter();
 
-      setPublicBalance(publicLamports);
-      setPrivateBalance(privateResult.lamports);
+      const publicBalance = isSolToken
+        ? await connection.getBalance(publicKey)
+        : await getPublicTokenBalance(connection, publicKey, token.mint);
+
+      const privateBaseUnits = isSolToken
+        ? (await getPrivateSOLBalance({ connection, wallet: walletAdapter }))
+            .lamports
+        : (
+            await getPrivateSPLBalance({
+              connection,
+              wallet: walletAdapter,
+              mintAddress: token.mint,
+            })
+          ).base_units;
+
+      setPublicBalanceBaseUnits(publicBalance);
+      setPrivateBalanceBaseUnits(privateBaseUnits);
       setBalancesChecked(true);
       setStatus("idle");
       setLogQueue([]);
@@ -148,33 +198,42 @@ export function PaymentReceiver({ paymentId }: PaymentReceiverProps) {
       setError(err instanceof Error ? err.message : "Failed to fetch balances");
       setStatus("error");
     }
-  }, [connection, getWalletAdapter, publicKey]);
+  }, [connection, getWalletAdapter, isSolToken, publicKey, token]);
 
   useEffect(() => {
-    if (!publicKey || balancesChecked || status === "checking") return;
+    if (!publicKey || !token || balancesChecked || status === "checking") return;
     fetchBalances();
-  }, [balancesChecked, fetchBalances, publicKey, status]);
+  }, [balancesChecked, fetchBalances, publicKey, status, token]);
 
-  const formatSOL = (lamports: number) => (lamports / 1e9).toFixed(3);
+  const formatAmount = useCallback(
+    (baseUnits: number) => {
+      if (!token) return "---";
+      return formatTokenAmount(baseUnits, token);
+    },
+    [token],
+  );
 
-  const amountLamports = useMemo(() => {
-    const parsed = parseFloat(amount);
-    return Number.isFinite(parsed) ? Math.floor(parsed * LAMPORTS_PER_SOL) : 0;
-  }, [amount]);
+  const tokenLabel = token?.label ?? "Token";
 
-  const isValidAmount = amountLamports > 0;
+  const amountBaseUnits = useMemo(() => {
+    if (!token) return 0;
+    const parsed = parseTokenAmountToBaseUnits(amount, token);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }, [amount, token]);
+
+  const isValidAmount = amountBaseUnits > 0;
   const feeRate = 0.0025;
-  const rentFee = 0.001 * LAMPORTS_PER_SOL;
-  const estimatedFeeLamports = isValidAmount
-    ? Math.floor(amountLamports * feeRate + rentFee)
+  const rentFeeBaseUnits = isSolToken ? Math.floor(0.001 * LAMPORTS_PER_SOL) : 0;
+  const estimatedFeeBaseUnits = isValidAmount
+    ? Math.floor(amountBaseUnits * feeRate + rentFeeBaseUnits)
     : 0;
-  const requiredPrivateLamports = isValidAmount
-    ? amountLamports + estimatedFeeLamports
+  const requiredPrivateBaseUnits = isValidAmount
+    ? amountBaseUnits + estimatedFeeBaseUnits
     : 0;
 
-  const shortfallLamports =
-    privateBalance !== null
-      ? Math.max(0, requiredPrivateLamports - privateBalance)
+  const shortfallBaseUnits =
+    privateBalanceBaseUnits !== null
+      ? Math.max(0, requiredPrivateBaseUnits - privateBalanceBaseUnits)
       : null;
 
   const address = publicKey?.toBase58();
@@ -199,8 +258,9 @@ export function PaymentReceiver({ paymentId }: PaymentReceiverProps) {
 
   const isBusy = status === "checking" || status === "depositing" || status === "paying";
   const hasSufficientBalance =
-    privateBalance !== null && privateBalance >= requiredPrivateLamports;
-  const needsDeposit = shortfallLamports !== null && shortfallLamports > 0;
+    privateBalanceBaseUnits !== null &&
+    privateBalanceBaseUnits >= requiredPrivateBaseUnits;
+  const needsDeposit = shortfallBaseUnits !== null && shortfallBaseUnits > 0;
 
   useEffect(() => {
     if (!isBusy) return;
@@ -223,17 +283,24 @@ export function PaymentReceiver({ paymentId }: PaymentReceiverProps) {
 
   const handleDeposit = useCallback(
     async (amountToDeposit: number) => {
-      if (!publicKey) return;
+      if (!publicKey || !token) return;
       setStatus("depositing");
       setError(null);
       setLogQueue((prev) => [...prev, "Info: Preparing private deposit..."]);
       try {
         const walletAdapter = getWalletAdapter();
-        const depositResult = await depositSOL({
-          connection,
-          wallet: walletAdapter,
-          amount_in_lamports: amountToDeposit,
-        });
+        const depositResult = isSolToken
+          ? await depositSOL({
+              connection,
+              wallet: walletAdapter,
+              amount_in_lamports: amountToDeposit,
+            })
+          : await depositSPLToken({
+              connection,
+              wallet: walletAdapter,
+              mintAddress: token.mint,
+              base_units: amountToDeposit,
+            });
 
         await connection.confirmTransaction(depositResult.tx, "confirmed");
         await fetchBalances();
@@ -245,12 +312,12 @@ export function PaymentReceiver({ paymentId }: PaymentReceiverProps) {
         setStatus("error");
       }
     },
-    [connection, fetchBalances, getWalletAdapter, publicKey]
+    [connection, fetchBalances, getWalletAdapter, isSolToken, publicKey, token]
   );
 
   const handlePay = useCallback(async () => {
     if (!paymentLink) return;
-    if (!publicKey) return;
+    if (!publicKey || !token) return;
     if (!isValidAmount) {
       setError("Please enter a valid amount");
       return;
@@ -261,7 +328,10 @@ export function PaymentReceiver({ paymentId }: PaymentReceiverProps) {
 
     try {
       const walletAdapter = getWalletAdapter();
-      const recipientResult = await PaymentLinksAPI.getRecipient(paymentId, amountLamports);
+      const recipientResult = await PaymentLinksAPI.getRecipient(
+        paymentId,
+        amountBaseUnits,
+      );
 
       if (!recipientResult.success || !recipientResult.data) {
         throw new Error(recipientResult.error || "Failed to get recipient");
@@ -273,12 +343,20 @@ export function PaymentReceiver({ paymentId }: PaymentReceiverProps) {
           existingSignature ?? (await signSessionMessage(walletAdapter));
         const signatureBase64 = toBase64(signature);
 
-        const withdrawApiResult = await PrivacyCashAPI.withdraw({
-          amountLamports,
-          recipient: recipientResult.data!.recipientAddress,
-          publicKey: walletAdapter.publicKey.toBase58(),
-          signature: signatureBase64,
-        });
+        const withdrawApiResult = isSolToken
+          ? await PrivacyCashAPI.withdraw({
+              amountLamports: amountBaseUnits,
+              recipient: recipientResult.data!.recipientAddress,
+              publicKey: walletAdapter.publicKey.toBase58(),
+              signature: signatureBase64,
+            })
+          : await PrivacyCashAPI.withdrawSpl({
+              amountBaseUnits,
+              mintAddress: token.mint,
+              recipient: recipientResult.data!.recipientAddress,
+              publicKey: walletAdapter.publicKey.toBase58(),
+              signature: signatureBase64,
+            });
 
         if (!withdrawApiResult.success) {
           throw new Error(withdrawApiResult.error || "Backend withdraw failed");
@@ -289,7 +367,7 @@ export function PaymentReceiver({ paymentId }: PaymentReceiverProps) {
 
       await PaymentLinksAPI.completePayment(paymentId, {
         txSignature: withdrawResult.tx,
-        amount: amountLamports,
+        amount: amountBaseUnits,
       });
 
       setStatus("success");
@@ -300,13 +378,14 @@ export function PaymentReceiver({ paymentId }: PaymentReceiverProps) {
       setStatus("error");
     }
   }, [
-    amountLamports,
-    connection,
+    amountBaseUnits,
     getWalletAdapter,
+    isSolToken,
     isValidAmount,
     paymentId,
     paymentLink,
     publicKey,
+    token,
   ]);
 
   const handlePrimaryAction = useCallback(async () => {
@@ -315,12 +394,19 @@ export function PaymentReceiver({ paymentId }: PaymentReceiverProps) {
       setError("Please enter a valid amount");
       return;
     }
-    if (needsDeposit && shortfallLamports) {
-      await handleDeposit(shortfallLamports);
+    if (needsDeposit && shortfallBaseUnits) {
+      await handleDeposit(shortfallBaseUnits);
       return;
     }
     await handlePay();
-  }, [handleDeposit, handlePay, isValidAmount, needsDeposit, publicKey, shortfallLamports]);
+  }, [
+    handleDeposit,
+    handlePay,
+    isValidAmount,
+    needsDeposit,
+    publicKey,
+    shortfallBaseUnits,
+  ]);
 
   const toBase64 = (bytes: Uint8Array) => {
     let binary = "";
@@ -383,7 +469,9 @@ export function PaymentReceiver({ paymentId }: PaymentReceiverProps) {
         <CardContent className="space-y-4 text-center">
           <div className="p-6 bg-green-500/10 border border-green-500/20 rounded-lg">
             <p className="text-lg font-semibold">
-              {amount} {paymentLink.tokenType.toUpperCase()} paid privately
+              {isValidAmount && token
+                ? `${formatAmount(amountBaseUnits)} ${token.label}`
+                : amount} paid privately
             </p>
             <p className="text-sm text-muted-foreground mt-2">
               Your payment is on-chain, but your identity stays private.
@@ -406,7 +494,7 @@ export function PaymentReceiver({ paymentId }: PaymentReceiverProps) {
             <CardDescription>Pay privately using ghostsend</CardDescription>
           </div>
           <Badge variant="secondary" className="ml-2">
-            {paymentLink.tokenType.toUpperCase()}
+            {tokenLabel}
           </Badge>
         </div>
       </CardHeader>
@@ -437,13 +525,20 @@ export function PaymentReceiver({ paymentId }: PaymentReceiverProps) {
             <div className="relative mt-2">
               <Input
                 type={paymentLink.amountType === "fixed" ? "text" : "number"}
+                step={
+                  paymentLink.amountType === "fixed"
+                    ? undefined
+                    : token
+                      ? getTokenStep(token)
+                      : "0.001"
+                }
                 value={amount}
                 readOnly={paymentLink.amountType === "fixed"}
                 onChange={(e) => setAmount(e.target.value)}
                 className="text-xl font-bold pr-20"
               />
               <Badge className="absolute right-2 top-1/2 -translate-y-1/2">
-                {paymentLink.tokenType.toUpperCase()}
+                {tokenLabel}
               </Badge>
             </div>
           </div>
@@ -529,13 +624,17 @@ export function PaymentReceiver({ paymentId }: PaymentReceiverProps) {
                   <div>
                     <p className="text-xs text-muted-foreground">Public Balance</p>
                     <p className="text-lg font-semibold">
-                      {publicBalance !== null ? `${formatSOL(publicBalance)} SOL` : "---"}
+                      {publicBalanceBaseUnits !== null && token
+                        ? `${formatAmount(publicBalanceBaseUnits)} ${token.label}`
+                        : "---"}
                     </p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Private Balance</p>
                     <p className="text-lg font-semibold">
-                      {privateBalance !== null ? `${formatSOL(privateBalance)} SOL` : "---"}
+                      {privateBalanceBaseUnits !== null && token
+                        ? `${formatAmount(privateBalanceBaseUnits)} ${token.label}`
+                        : "---"}
                     </p>
                   </div>
                 </div>
@@ -553,14 +652,16 @@ export function PaymentReceiver({ paymentId }: PaymentReceiverProps) {
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Requirement</span>
                   <span className="font-semibold">
-                    {isValidAmount ? formatSOL(amountLamports) : "0.000"} SOL
+                    {token ? `${formatAmount(amountBaseUnits)} ${token.label}` : "---"}
                   </span>
                 </div>
                 <div className="h-px bg-border/60" />
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Deposit needed</span>
                   <span className={cn("font-semibold", needsDeposit && "text-amber-500")}>
-                    {shortfallLamports !== null ? formatSOL(shortfallLamports) : "0.000"} SOL
+                    {token && shortfallBaseUnits !== null
+                      ? `${formatAmount(shortfallBaseUnits)} ${token.label}`
+                      : "---"}
                   </span>
                 </div>
               </div>
@@ -569,24 +670,26 @@ export function PaymentReceiver({ paymentId }: PaymentReceiverProps) {
             <Separator />
 
             <div className="space-y-3">
-              {paymentLink.tokenType !== "sol" && (
-                <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded text-sm text-yellow-600">
-                  {paymentLink.tokenType.toUpperCase()} payments are coming soon.
-                </div>
-              )}
               <Button
                 onClick={handlePrimaryAction}
                 disabled={
                   isBusy ||
-                  paymentLink.tokenType !== "sol" ||
                   !isValidAmount ||
-                  (needsDeposit ? shortfallLamports === null : !hasSufficientBalance)
+                  (needsDeposit ? shortfallBaseUnits === null : !hasSufficientBalance)
                 }
                 className="w-full"
               >
                 {needsDeposit
-                  ? `Deposit ${shortfallLamports ? formatSOL(shortfallLamports) : "0.000"} SOL`
-                  : `Pay ${isValidAmount ? formatSOL(amountLamports) : "0.000"} ${paymentLink.tokenType.toUpperCase()}`}
+                  ? `Deposit ${
+                      token && shortfallBaseUnits !== null
+                        ? `${formatAmount(shortfallBaseUnits)} ${token.label}`
+                        : "---"
+                    }`
+                  : `Pay ${
+                      token
+                        ? `${formatAmount(amountBaseUnits)} ${token.label}`
+                        : "---"
+                    }`}
               </Button>
               {needsDeposit ? (
                 <p className="text-xs text-muted-foreground">

@@ -11,6 +11,7 @@ import type {
   PaymentLinkPublicInfo,
   CreatePaymentLinkRequest,
 } from './payment-links-types';
+import { formatTokenAmount, getTokenByMint } from './token-registry';
 
 // In-memory store
 const paymentLinks = new Map<string, PaymentLinkMetadata>();
@@ -64,7 +65,7 @@ export const PaymentLinksStore = {
     const metadata: PaymentLinkMetadata = {
       paymentId,
       recipientAddress: request.recipientAddress,
-      tokenType: request.tokenType,
+      tokenMint: request.tokenMint,
       amountType: request.amountType,
       fixedAmount: request.fixedAmount,
       minAmount: request.minAmount,
@@ -122,17 +123,23 @@ export const PaymentLinksStore = {
       return { valid: false, error: 'Amount must be positive' };
     }
 
+    const token = getTokenByMint(link.tokenMint);
+    const formatAmount = (value: number) => {
+      if (!token) return `${value} base units`;
+      return `${formatTokenAmount(value, token)} ${token.label}`;
+    };
+
     if (link.amountType === 'fixed') {
       if (amount !== link.fixedAmount) {
-        return { valid: false, error: `Amount must be exactly ${link.fixedAmount} lamports` };
+        return { valid: false, error: `Amount must be exactly ${formatAmount(link.fixedAmount ?? 0)}` };
       }
     } else {
       // Flexible amount
       if (link.minAmount && amount < link.minAmount) {
-        return { valid: false, error: `Amount must be at least ${link.minAmount} lamports` };
+        return { valid: false, error: `Amount must be at least ${formatAmount(link.minAmount)}` };
       }
       if (link.maxAmount && amount > link.maxAmount) {
-        return { valid: false, error: `Amount cannot exceed ${link.maxAmount} lamports` };
+        return { valid: false, error: `Amount cannot exceed ${formatAmount(link.maxAmount)}` };
       }
     }
 

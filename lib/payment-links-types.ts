@@ -4,7 +4,7 @@
  * Type definitions for the private payment links feature.
  */
 
-export type TokenType = 'sol' | 'usdc' | 'usdt' | 'zec' | 'ore' | 'store';
+export type TokenMint = string;
 
 export type AmountType = 'fixed' | 'flexible';
 
@@ -18,7 +18,7 @@ export type PaymentRecordStatus = 'completed';
 export interface PaymentLinkMetadata {
   paymentId: string;
   recipientAddress: string;       // Public key of recipient (private, not exposed to sender)
-  tokenType: TokenType;
+  tokenMint: TokenMint;
   amountType: AmountType;
   fixedAmount?: number;            // In lamports for SOL, base_units for SPL tokens
   minAmount?: number;              // For flexible amounts
@@ -38,7 +38,7 @@ export interface PaymentLinkMetadata {
 export interface PaymentRecord {
   id: string;
   paymentId: string;
-  tokenType: TokenType;
+  tokenMint: TokenMint;
   amount: number;
   txSignature: string;
   completedAt: number;
@@ -50,7 +50,7 @@ export interface PaymentRecord {
  */
 export interface PaymentLinkPublicInfo {
   paymentId: string;
-  tokenType: TokenType;
+  tokenMint: TokenMint;
   amountType: AmountType;
   fixedAmount?: number;
   minAmount?: number;
@@ -67,7 +67,7 @@ export interface PaymentLinkPublicInfo {
  */
 export interface CreatePaymentLinkRequest {
   recipientAddress: string;
-  tokenType: TokenType;
+  tokenMint: TokenMint;
   amountType: AmountType;
   fixedAmount?: number;
   minAmount?: number;

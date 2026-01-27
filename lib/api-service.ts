@@ -37,6 +37,22 @@ type WithdrawResult = {
   fee_in_lamports: number;
 };
 
+type WithdrawSplRequest = {
+  amountBaseUnits: number;
+  mintAddress: string;
+  recipient: string;
+  publicKey: string;
+  signature: string;
+};
+
+type WithdrawSplResult = {
+  isPartial: boolean;
+  tx: string;
+  recipient: string;
+  base_units: number;
+  fee_base_units: number;
+};
+
 /**
  * Fetch helper with error handling
  */
@@ -194,6 +210,22 @@ export const PrivacyCashAPI = {
     error?: string;
   }> {
     return fetchAPI(`/withdraw`, {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+  },
+
+  /**
+   * Execute a private SPL withdrawal
+   */
+  async withdrawSpl(
+    request: WithdrawSplRequest
+  ): Promise<{
+    success: boolean;
+    data?: { success: boolean; result: WithdrawSplResult };
+    error?: string;
+  }> {
+    return fetchAPI(`/withdraw-spl`, {
       method: 'POST',
       body: JSON.stringify(request),
     });

@@ -20,6 +20,22 @@ type WithdrawResult = {
   fee_in_lamports: number;
 };
 
+type WithdrawSplRequest = {
+  amountBaseUnits: number;
+  mintAddress: string;
+  recipient: string;
+  publicKey: string;
+  signature: string;
+};
+
+type WithdrawSplResult = {
+  isPartial: boolean;
+  tx: string;
+  recipient: string;
+  base_units: number;
+  fee_base_units: number;
+};
+
 const RPC_URL =
   process.env.SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com";
 const KEY_BASE_PATH =
@@ -193,6 +209,84 @@ app.post<{ Body: WithdrawRequest }>("/withdraw", async (request, reply) => {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     request.log.error({ msg: "[prover-backend][withdraw] error", message });
+    return reply.status(500).send({
+      success: false,
+      error: message || "Withdraw failed",
+    });
+  } finally {
+    clearInterval(heartbeat);
+  }
+});
+
+app.post<{ Body: WithdrawSplRequest }>("/withdraw-spl", async (request, reply) => {
+  await warmupPromise;
+
+  const body = request.body;
+  if (
+    !body ||
+    !body.amountBaseUnits ||
+    !body.mintAddress ||
+    !body.recipient ||
+    !body.publicKey ||
+    !body.signature
+  ) {
+    return reply.status(400).send({
+      success: false,
+      error: "Missing required fields",
+    });
+  }
+
+  const connection = getConnection();
+  const { publicKey, encryptionService, lightWasm } =
+    await buildSessionFromSignature(body.publicKey, body.signature);
+  const sdk = await getSDK();
+  const recipientPubkey = new PublicKey(body.recipient);
+  const storage = getStorageForPubkey(publicKey.toBase58());
+
+  const startedAt = Date.now();
+  const heartbeat = setInterval(() => {
+    const elapsedSec = Math.floor((Date.now() - startedAt) / 1000);
+    request.log.info(
+      `[prover-backend][withdraw-spl] still running... ${elapsedSec}s elapsed`
+    );
+  }, 15000);
+
+  try {
+    const timeoutMs = 300000; // 5 minutes
+    const result = (await Promise.race([
+      sdk.withdrawSPL({
+        lightWasm,
+        connection,
+        base_units: body.amountBaseUnits,
+        mintAddress: body.mintAddress,
+        keyBasePath: KEY_BASE_PATH,
+        publicKey,
+        recipient: recipientPubkey,
+        storage,
+        encryptionService,
+      }),
+      new Promise((_, reject) =>
+        setTimeout(
+          () => reject(new Error(`Withdraw timed out after ${timeoutMs}ms`)),
+          timeoutMs
+        )
+      ),
+    ])) as WithdrawSplResult;
+
+    const elapsed = Date.now() - startedAt;
+    request.log.info({
+      msg: "[prover-backend][withdraw-spl] success",
+      tx: result.tx,
+      base_units: result.base_units,
+      fee_base_units: result.fee_base_units,
+      isPartial: result.isPartial,
+      elapsed_ms: elapsed,
+    });
+
+    return reply.send({ success: true, result });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    request.log.error({ msg: "[prover-backend][withdraw-spl] error", message });
     return reply.status(500).send({
       success: false,
       error: message || "Withdraw failed",
