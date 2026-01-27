@@ -14,6 +14,16 @@ export default function Page() {
             "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(120, 180, 255, 0.25), transparent 70%), #000000",
         }}
       />
+      <div
+        className="absolute inset-0 z-10"
+        style={{
+          backgroundImage:
+            "radial-gradient(circle at 25% 25%, #222222 0.5px, transparent 1px), radial-gradient(circle at 75% 75%, #111111 0.5px, transparent 1px)",
+          backgroundSize: "10px 10px",
+          imageRendering: "pixelated",
+          opacity: 0.6,
+        }}
+      />
       <main className="relative z-20 container mx-auto px-4 ">
         <div className="mx-auto flex max-w-xl flex-col ">
           <div className="flex flex-col items-center">

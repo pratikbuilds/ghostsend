@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useUnifiedWalletContext, useWallet } from "@jup-ag/wallet-adapter";
 import {
   Card,
@@ -46,6 +46,11 @@ export function PaymentLinkCreator({ onCreated }: PaymentLinkCreatorProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [createdLink, setCreatedLink] = useState<CreatedLink | null>(null);
+
+  const baseUrl = useMemo(() => {
+    if (typeof window === "undefined") return "";
+    return window.location.origin;
+  }, []);
 
   const address = publicKey?.toBase58();
   const shortAddress = address
@@ -107,9 +112,13 @@ export function PaymentLinkCreator({ onCreated }: PaymentLinkCreatorProps) {
         throw new Error(result.error || "Failed to create payment link");
       }
 
+      const resolvedUrl = baseUrl
+        ? `${baseUrl}/pay/${result.data.paymentLink.paymentId}`
+        : result.data.url;
+
       const created = {
         metadata: result.data.paymentLink,
-        url: result.data.url,
+        url: resolvedUrl,
       };
 
       setCreatedLink(created);
