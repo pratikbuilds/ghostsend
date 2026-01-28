@@ -24,20 +24,23 @@ export default function Page() {
           opacity: 0.6,
         }}
       />
-      <main className="relative z-20 container mx-auto px-4 ">
-        <div className="mx-auto flex max-w-xl flex-col ">
-          <div className="flex flex-col items-center">
-            <Image
-              src="/new_logo.png"
-              alt="ghostsend logo"
-              width={1536}
-              height={1024}
-              className="h-auto w-[clamp(140px,32vw,220px)]"
-              priority
-            />
-            <h1 className="sr-only">ghostsend</h1>
-          </div>
+      
+      {/* Logo in top-left corner */}
+      <div className="absolute top-6 left-6 z-30">
+        <Image
+          src="/new_logo.png"
+          alt="ghostsend logo"
+          width={1536}
+          height={1024}
+          className="h-auto w-[clamp(100px,20vw,160px)] opacity-90 hover:opacity-100 transition-opacity"
+          priority
+        />
+        <h1 className="sr-only">ghostsend</h1>
+      </div>
 
+      {/* Centered main content */}
+      <main className="relative z-20 min-h-screen flex items-center justify-center px-4 py-20">
+        <div className="w-full max-w-xl">
           <PaymentLinksManager />
         </div>
       </main>

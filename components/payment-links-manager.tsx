@@ -121,19 +121,19 @@ export function PaymentLinksManager() {
         <TabsList variant="pill" className="mx-auto">
           <TabsTrigger
             value="request"
-            className="text-xs font-mono uppercase tracking-wide"
+            className="text-xs font-mono uppercase"
           >
             Create Link
           </TabsTrigger>
           <TabsTrigger
             value="links"
-            className="text-xs font-mono uppercase tracking-wide"
+            className="text-xs font-mono uppercase"
           >
             Created
           </TabsTrigger>
           <TabsTrigger
             value="history"
-            className="text-xs font-mono uppercase tracking-wide"
+            className="text-xs font-mono uppercase"
           >
             History
           </TabsTrigger>

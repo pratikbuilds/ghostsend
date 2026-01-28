@@ -179,7 +179,8 @@ export function PaymentLinkCreator({ onCreated }: PaymentLinkCreatorProps) {
               <div className="flex justify-between">
                 <span className="text-sm text-muted-foreground">Token:</span>
                 <Badge variant="secondary">
-                  {getTokenByMint(createdLink.metadata.tokenMint)?.label ?? "Token"}
+                  {getTokenByMint(createdLink.metadata.tokenMint)?.label ??
+                    "Token"}
                 </Badge>
               </div>
               <div className="flex justify-between">
@@ -297,12 +298,12 @@ export function PaymentLinkCreator({ onCreated }: PaymentLinkCreatorProps) {
 
             <div className="space-y-2">
               <Label>Amount</Label>
-                <AmountTokenInput
-                  amount={amount}
-                  onAmountChange={setAmount}
-                  token={tokenMint}
-                  onTokenChange={setTokenMint}
-                />
+              <AmountTokenInput
+                amount={amount}
+                onAmountChange={setAmount}
+                token={tokenMint}
+                onTokenChange={setTokenMint}
+              />
             </div>
 
             <div className="space-y-2">
@@ -325,7 +326,7 @@ export function PaymentLinkCreator({ onCreated }: PaymentLinkCreatorProps) {
             <Button
               onClick={handleCreate}
               disabled={loading}
-              className="w-full h-14 gap-3 text-lg font-semibold"
+              className="w-full h-14 gap-3 rounded-2xl bg-primary text-primary-foreground text-lg font-semibold shadow-lg hover:bg-primary/90 hover:shadow-xl active:bg-primary/80 active:translate-y-px active:shadow-md disabled:opacity-50 transition-all"
             >
               <Link2 className="h-5 w-5" />
               {loading ? "Creating..." : "Generate Payment Link"}
