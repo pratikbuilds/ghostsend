@@ -2,7 +2,6 @@
 
 import { use } from "react";
 import { PaymentReceiver } from "@/components/payment-receiver";
-import { Header } from "@/components/header";
 
 import Image from "next/image";
 

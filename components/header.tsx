@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { WalletButton } from "@/components/wallet-button";
+import { WalletConnectButton } from "@/components/wallet-button";
 
 export function Header() {
   return (
@@ -22,7 +22,7 @@ export function Header() {
           </div>
           <nav className="flex items-center">
             <div className="wallet-button-container">
-              <WalletButton />
+              <WalletConnectButton />
             </div>
           </nav>
         </div>

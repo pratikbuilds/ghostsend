@@ -112,60 +112,71 @@ export function PaymentLinksManager() {
   );
 
   return (
-    <Tabs
-      value={activeTab}
-      onValueChange={(value: string) => setActiveTab(value as TabKey)}
-      className="space-y-2"
-    >
-      <div className="space-y-6">
-        <TabsList variant="pill" className="mx-auto">
-          <TabsTrigger
-            value="request"
-            className="text-xs font-mono uppercase"
-          >
-            Create Link
-          </TabsTrigger>
-          <TabsTrigger
-            value="links"
-            className="text-xs font-mono uppercase"
-          >
-            Created
-          </TabsTrigger>
-          <TabsTrigger
-            value="history"
-            className="text-xs font-mono uppercase"
-          >
-            History
-          </TabsTrigger>
-        </TabsList>
+    <div className="h-full min-h-0 flex flex-col">
+      <Tabs
+        value={activeTab}
+        onValueChange={(value: string) => setActiveTab(value as TabKey)}
+        className="flex-1 flex flex-col min-h-0"
+      >
+        <div className="shrink-0 space-y-6">
+          <TabsList variant="pill" className="mx-auto">
+            <TabsTrigger
+              value="request"
+              className="text-xs font-mono uppercase"
+            >
+              Create Link
+            </TabsTrigger>
+            <TabsTrigger
+              value="links"
+              className="text-xs font-mono uppercase"
+            >
+              Created
+            </TabsTrigger>
+            <TabsTrigger
+              value="history"
+              className="text-xs font-mono uppercase"
+            >
+              History
+            </TabsTrigger>
+          </TabsList>
 
-        {error && (
-          <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-500">
-            {error}
-          </div>
-        )}
-      </div>
+          {error && (
+            <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-500">
+              {error}
+            </div>
+          )}
+        </div>
 
-      <TabsContent value="request" className="mt-0">
-        <PaymentLinkCreator onCreated={handleCreated} />
-      </TabsContent>
+        <TabsContent
+          value="request"
+          className="mt-0 flex-1 min-h-0 overflow-auto outline-none"
+        >
+          <PaymentLinkCreator onCreated={handleCreated} />
+        </TabsContent>
 
-      <TabsContent value="links" className="mt-0">
-        <CreatedLinksTab
-          links={createdLinks}
-          loading={loadingLinks}
-          onDelete={handleDelete}
-          isWalletConnected={Boolean(publicKey)}
-        />
-      </TabsContent>
+        <TabsContent
+          value="links"
+          className="mt-0 flex-1 min-h-0 overflow-auto outline-none"
+        >
+          <CreatedLinksTab
+            links={createdLinks}
+            loading={loadingLinks}
+            onDelete={handleDelete}
+            isWalletConnected={Boolean(publicKey)}
+          />
+        </TabsContent>
 
-      <TabsContent value="history" className="mt-0">
-        <PaymentHistoryTab
-          payments={paymentHistory}
-          loading={loadingHistory}
-          isWalletConnected={Boolean(publicKey)}
-        />
-      </TabsContent>
-    </Tabs>
+        <TabsContent
+          value="history"
+          className="mt-0 flex-1 min-h-0 overflow-auto outline-none"
+        >
+          <PaymentHistoryTab
+            payments={paymentHistory}
+            loading={loadingHistory}
+            isWalletConnected={Boolean(publicKey)}
+          />
+        </TabsContent>
+      </Tabs>
+    </div>
   );
 }

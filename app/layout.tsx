@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
-import { WalletProvider } from "@/components/wallet-provider";
+import { WalletProviderClient } from "@/components/wallet-provider-client";
 
 const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
@@ -20,7 +20,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "ghostsend | Private Payments on Solana",
-  description: "Send and receive private payments on Solana with zero-knowledge proofs. Your transactions, your privacy.",
+  description:
+    "Send and receive private payments on Solana with zero-knowledge proofs. Your transactions, your privacy.",
   icons: {
     icon: "/ghostsend.svg",
   },
@@ -36,7 +37,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <WalletProvider>{children}</WalletProvider>
+        <WalletProviderClient>{children}</WalletProviderClient>
       </body>
     </html>
   );

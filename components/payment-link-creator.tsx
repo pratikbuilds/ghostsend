@@ -10,19 +10,12 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { WalletConnectButton } from "@/components/wallet-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import { CopyButton } from "@/components/ui/copy-button";
+import { cn } from "@/lib/utils";
 import { AmountTokenInput } from "@/components/ui/amount-token-input";
 import { PaymentLinksAPI } from "@/lib/api-service";
 import type { PaymentLinkMetadata, TokenMint } from "@/lib/payment-links-types";
@@ -33,16 +26,53 @@ import {
   parseTokenAmountToBaseUnits,
   tokenRegistry,
 } from "@/lib/token-registry";
-import { Link2 } from "lucide-react";
+import { Link2, CheckCircle2, Copy, Check } from "lucide-react";
 
 type CreatedLink = { metadata: PaymentLinkMetadata; url: string };
+
+function CopyButtonWithIcon({ text, className }: { text: string; className?: string }) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // no-op
+    }
+  };
+  return (
+    <Button
+      onClick={handleCopy}
+      variant="outline"
+      size="sm"
+      className={cn(
+        "h-11 shrink-0 gap-2 rounded-lg border-primary/30 bg-primary/5 px-4 font-medium text-primary hover:bg-primary/10 hover:border-primary/50 transition-all [&_svg]:size-4",
+        copied && "border-green-500/40 bg-green-500/10 text-green-600 dark:text-green-400",
+        className
+      )}
+    >
+      {copied ? (
+        <>
+          <Check className="size-4" />
+          Copied
+        </>
+      ) : (
+        <>
+          <Copy className="size-4" />
+          Copy
+        </>
+      )}
+    </Button>
+  );
+}
 
 interface PaymentLinkCreatorProps {
   onCreated?: (created: CreatedLink) => void;
 }
 
 export function PaymentLinkCreator({ onCreated }: PaymentLinkCreatorProps) {
-  const { publicKey, connected, connecting, disconnect } = useWallet();
+  const { publicKey } = useWallet();
   const { setShowModal } = useUnifiedWalletContext();
 
   const [tokenMint, setTokenMint] = useState<TokenMint>(
@@ -62,32 +92,12 @@ export function PaymentLinkCreator({ onCreated }: PaymentLinkCreatorProps) {
   }, []);
 
   const address = publicKey?.toBase58();
-  const shortAddress = address
-    ? `${address.slice(0, 4)}...${address.slice(-4)}`
-    : null;
 
   useEffect(() => {
     if (address && !recipientAddress) {
       setRecipientAddress(address);
     }
   }, [address, recipientAddress]);
-
-  const handleCopyAddress = async () => {
-    if (!address) return;
-    try {
-      await navigator.clipboard.writeText(address);
-    } catch {
-      // ignore clipboard failures (e.g. http / permissions)
-    }
-  };
-
-  const handleDisconnect = async () => {
-    try {
-      await disconnect?.();
-    } catch {
-      // ignore disconnect failures
-    }
-  };
 
   const handleCreate = async () => {
     const resolvedRecipient = recipientAddress.trim() || address;
@@ -159,131 +169,129 @@ export function PaymentLinkCreator({ onCreated }: PaymentLinkCreatorProps) {
   return (
     <div className="space-y-4">
       {createdLink ? (
-        <Card className="border-border/60 bg-card/80">
-          <CardHeader className="space-y-2 pb-4">
-            <CardTitle>Payment Link Created!</CardTitle>
-            <CardDescription>
-              Share this link to receive payments
+        <Card
+          className="animate-success-in border-border/50 bg-card/90 overflow-hidden rounded-2xl shadow-[0_0_0_1px_var(--border),0_8px_40px_-12px_oklch(0.72_0.15_220/12%)] dark:shadow-[0_0_0_1px_var(--border),0_8px_40px_-12px_black/40%]"
+          size="default"
+        >
+          <CardHeader className="space-y-3 px-6 pt-8 pb-2 text-center">
+            <div
+              className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 ring-2 ring-primary/20"
+              aria-hidden
+            >
+              <CheckCircle2 className="h-8 w-8 text-primary" strokeWidth={1.75} />
+            </div>
+            <CardTitle className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
+              Payment link ready
+            </CardTitle>
+            <CardDescription className="text-sm text-muted-foreground">
+              Share the link below — recipients can pay without seeing your wallet
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-6 px-6 pb-8 pt-4">
             <div className="space-y-2">
-              <Label>Payment Link</Label>
-              <div className="flex gap-2">
-                <Input value={createdLink.url} readOnly className="flex-1" />
-                <CopyButton text={createdLink.url} />
+              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Payment link
+              </Label>
+              <div className="flex gap-2 items-stretch">
+                <Input
+                  value={createdLink.url}
+                  readOnly
+                  className="flex-1 min-h-0 h-11 font-mono text-sm tabular-nums text-foreground selection:bg-primary/20 rounded-lg border-input bg-muted/30 py-2.5 px-3"
+                />
+                <CopyButtonWithIcon text={createdLink.url} />
               </div>
             </div>
 
-            <div className="space-y-2 p-4 bg-muted rounded-lg">
-              <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">Token:</span>
-                <Badge variant="secondary">
-                  {getTokenByMint(createdLink.metadata.tokenMint)?.label ??
-                    "Token"}
-                </Badge>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">Amount:</span>
-                <span className="text-sm font-medium">
-                  {formatAmount(
-                    createdLink.metadata.fixedAmount,
-                    createdLink.metadata.tokenMint,
-                  )}
-                </span>
-              </div>
-              {createdLink.metadata.message && (
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">
-                    Message:
-                  </span>
-                  <span className="text-sm font-medium">
-                    {createdLink.metadata.message}
-                  </span>
+            {/* Token + amount: single loud block, no chip */}
+            {(() => {
+              const token = getTokenByMint(createdLink.metadata.tokenMint);
+              const label = token?.label ?? "Token";
+              const icon = token?.icon;
+              const amountStr = formatAmount(
+                createdLink.metadata.fixedAmount,
+                createdLink.metadata.tokenMint,
+              );
+              return (
+                <div className="flex flex-col gap-1 rounded-lg border border-border/50 bg-muted/10 px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
+                  <div className="flex items-center gap-3">
+                    {icon ? (
+                      <span
+                        className="size-10 shrink-0 rounded-full bg-cover bg-center bg-no-repeat ring-2 ring-primary/20"
+                        style={{ backgroundImage: `url(${icon})` }}
+                        role="img"
+                        aria-hidden
+                      />
+                    ) : null}
+                    <div>
+                      <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                        Token
+                      </p>
+                      <p className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">
+                        {label}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="border-t border-border/50 pt-4 sm:border-t-0 sm:border-l sm:border-border/50 sm:pt-0 sm:pl-6 sm:min-w-0">
+                    <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                      Amount
+                    </p>
+                    <p className="mt-0.5 text-2xl font-bold tabular-nums tracking-tight text-foreground sm:text-3xl">
+                      {amountStr}
+                    </p>
+                  </div>
                 </div>
-              )}
-            </div>
+              );
+            })()}
+            {createdLink.metadata.message && (
+              <div className="rounded-lg border border-border/50 bg-muted/20 px-4 py-3">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  Message
+                </p>
+                <p className="mt-1.5 text-sm text-foreground">
+                  {createdLink.metadata.message}
+                </p>
+              </div>
+            )}
 
-            <Button
-              onClick={() => setCreatedLink(null)}
-              variant="outline"
-              className="w-full"
-            >
-              Create Another Link
-            </Button>
+            <div className="flex flex-col gap-2 pt-2">
+              <Button
+                onClick={() => setCreatedLink(null)}
+                className="h-12 w-full rounded-lg bg-primary text-primary-foreground font-semibold shadow-lg shadow-primary/20 hover:bg-primary/90 hover:shadow-primary/25 active:translate-y-px transition-all"
+              >
+                <Link2 className="h-4 w-4" />
+                Create another link
+              </Button>
+            </div>
           </CardContent>
         </Card>
       ) : (
-        <Card className="border-border/60 bg-card/80">
-          <CardHeader className="space-y-2 pb-4">
-            <CardTitle>Create Payment Link</CardTitle>
-            <CardDescription>
-              Generate a private payment link. Recipients won&apos;t see your
-              wallet address publicly.
+        <Card className="border-border/50 bg-card/90 overflow-hidden rounded-2xl shadow-[0_0_0_1px_var(--border),0_8px_40px_-12px_oklch(0.72_0.15_220/8%)] dark:shadow-[0_0_0_1px_var(--border),0_8px_40px_-12px_black/30%]">
+          <CardHeader className="space-y-2 px-6 pt-6 pb-4">
+            <CardTitle className="text-lg font-semibold tracking-tight sm:text-xl">
+              Create payment link
+            </CardTitle>
+            <CardDescription className="text-sm text-muted-foreground">
+              Generate a private link. Recipients pay without seeing your wallet
+              address.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-5">
-            <div className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/30 px-3 py-2">
-              <span className="text-xs text-muted-foreground">
-                Connected Wallet
-              </span>
-              {connected && address ? (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-7 px-2 text-xs font-mono"
-                    >
-                      {shortAddress}
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuLabel>Wallet</DropdownMenuLabel>
-                    <DropdownMenuItem onSelect={handleCopyAddress}>
-                      Copy address
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      variant="destructive"
-                      onSelect={handleDisconnect}
-                    >
-                      Disconnect
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              ) : (
+          <CardContent className="space-y-5 px-6 pb-8">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-3">
+                <Label>Recipient address</Label>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground">
-                    {connecting ? "Connecting..." : "Not connected"}
-                  </span>
                   <Button
                     type="button"
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
-                    disabled={connecting}
                     className="h-7 px-2 text-xs"
-                    onClick={() => setShowModal(true)}
+                    onClick={() => address && setRecipientAddress(address)}
+                    disabled={!address}
                   >
-                    Connect wallet
+                    Use connected wallet
                   </Button>
+                  <WalletConnectButton size="sm" />
                 </div>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label>Recipient address</Label>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 px-2 text-xs"
-                  onClick={() => address && setRecipientAddress(address)}
-                  disabled={!address}
-                >
-                  Use connected wallet
-                </Button>
               </div>
               <Input
                 value={recipientAddress}

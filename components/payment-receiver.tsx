@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useUnifiedWalletContext, useWallet } from "@jup-ag/wallet-adapter";
+import { useWallet } from "@jup-ag/wallet-adapter";
 import {
   Connection,
   LAMPORTS_PER_SOL,
@@ -17,14 +17,7 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { WalletConnectButton } from "@/components/wallet-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -49,7 +42,6 @@ import {
   isSolMint,
   parseTokenAmountToBaseUnits,
 } from "@/lib/token-registry";
-import { Wallet } from "lucide-react";
 import { Typewriter } from "@/components/ui/typewriter";
 import { cn } from "@/lib/utils";
 
@@ -64,8 +56,7 @@ interface PaymentReceiverProps {
 type PaymentStatus = "idle" | "checking" | "depositing" | "paying" | "success" | "error";
 
 export function PaymentReceiver({ paymentId }: PaymentReceiverProps) {
-  const { publicKey, signMessage, signTransaction, disconnect } = useWallet();
-  const { setShowModal } = useUnifiedWalletContext();
+  const { publicKey, signMessage, signTransaction } = useWallet();
   const [connection] = useState(() => new Connection(RPC_URL, "confirmed"));
 
   const [paymentLink, setPaymentLink] = useState<PaymentLinkPublicInfo | null>(null);
@@ -235,26 +226,6 @@ export function PaymentReceiver({ paymentId }: PaymentReceiverProps) {
     privateBalanceBaseUnits !== null
       ? Math.max(0, requiredPrivateBaseUnits - privateBalanceBaseUnits)
       : null;
-
-  const address = publicKey?.toBase58();
-  const shortAddress = address ? `${address.slice(0, 4)}...${address.slice(-4)}` : null;
-
-  const handleCopyAddress = async () => {
-    if (!address) return;
-    try {
-      await navigator.clipboard.writeText(address);
-    } catch {
-      // ignore clipboard failures
-    }
-  };
-
-  const handleDisconnect = async () => {
-    try {
-      await disconnect?.();
-    } catch {
-      // ignore disconnect failures
-    }
-  };
 
   const isBusy = status === "checking" || status === "depositing" || status === "paying";
   const hasSufficientBalance =
@@ -508,17 +479,6 @@ export function PaymentReceiver({ paymentId }: PaymentReceiverProps) {
           </div>
         )}
 
-        {!publicKey && (
-          <Button
-            type="button"
-            onClick={() => setShowModal(true)}
-            className="w-full h-14 gap-3 text-lg font-semibold"
-          >
-            <Wallet className="h-5 w-5" />
-            Connect Wallet
-          </Button>
-        )}
-
         <div className="space-y-4">
           <div>
             <Label>Amount</Label>
@@ -547,33 +507,10 @@ export function PaymentReceiver({ paymentId }: PaymentReceiverProps) {
         <Separator />
 
         <div className="space-y-4">
-          <p className="text-sm font-medium">Wallet</p>
-          {publicKey && shortAddress && (
-            <div className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/30 px-3 py-2">
-              <span className="text-xs text-muted-foreground">Connected Wallet</span>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 px-2 text-xs font-mono"
-                  >
-                    {shortAddress}
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuLabel>Wallet</DropdownMenuLabel>
-                  <DropdownMenuItem onSelect={handleCopyAddress}>
-                    Copy address
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem variant="destructive" onSelect={handleDisconnect}>
-                    Disconnect
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          )}
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium">Wallet</p>
+            <WalletConnectButton size="sm" />
+          </div>
           {publicKey && (
             <div className="relative h-28 overflow-hidden rounded-lg border border-border/60 bg-muted/30">
               <div

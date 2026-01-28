@@ -317,3 +317,19 @@
   transform: translateY(-2px);
   box-shadow: 0 8px 30px oklch(0.72 0.15 220 / 15%);
 }
+
+/* Success card entrance */
+@keyframes success-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-success-in {
+  animation: success-card-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}

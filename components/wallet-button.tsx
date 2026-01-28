@@ -1,7 +1,5 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import dynamic from "next/dynamic";
 import { useUnifiedWalletContext, useWallet } from "@jup-ag/wallet-adapter";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,52 +10,41 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 import { Wallet } from "lucide-react";
 
-function WalletBtn() {
-  const { connected, disconnect, connecting, publicKey } = useWallet();
-  const { setShowModal } = useUnifiedWalletContext();
-
-  return connected ? (
-    <Button
-      variant="outline"
-      size="sm"
-      className="gap-2 text-xs sm:text-sm"
-      onClick={disconnect}
-    >
-      <Wallet className="h-4 w-4" />
-      <span
-        className="hidden sm:inline max-w-[120px] truncate"
-        title={publicKey?.toBase58()}
-      >
-        {publicKey?.toBase58()?.slice(0, 4) +
-          "..." +
-          publicKey?.toBase58()?.slice(-4)}
-      </span>
-      <span className="sm:hidden">Connected</span>
-    </Button>
-  ) : (
-    <Button
-      variant="default"
-      size="sm"
-      className="gap-2 text-xs sm:text-sm"
-      disabled={connecting}
-      onClick={() => setShowModal(true)}
-    >
-      <Wallet className="h-4 w-4" />
-      <span>Connect Wallet</span>
-    </Button>
-  );
-}
+type WalletConnectButtonProps = {
+  size?: "sm" | "default";
+  className?: string;
+  align?: "start" | "center" | "end";
+};
 
 function truncateAddress(address: string) {
   if (address.length <= 12) return address;
   return `${address.slice(0, 4)}...${address.slice(-4)}`;
 }
 
-export function WalletButton() {
+function StatusDot({ status }: { status: "connected" | "connecting" | "idle" }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex h-2 w-2 rounded-full",
+        status === "connected" && "bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.7)]",
+        status === "connecting" && "bg-amber-400 animate-pulse",
+        status === "idle" && "bg-muted-foreground/60",
+      )}
+    />
+  );
+}
+
+export function WalletConnectButton({
+  size = "sm",
+  className,
+  align = "end",
+}: WalletConnectButtonProps) {
   const wallet = useWallet();
   const address = wallet.publicKey?.toBase58();
+  const { setShowModal } = useUnifiedWalletContext();
 
   const handleCopy = async () => {
     if (!address) return;
@@ -76,29 +63,35 @@ export function WalletButton() {
     }
   };
 
-  // Show connecting state
   if (wallet.connecting) {
     return (
-      <Button variant="outline" size="sm" disabled className="min-w-[140px]">
+      <Button
+        variant="outline"
+        size={size}
+        disabled
+        className={cn("min-w-[140px] gap-2", className)}
+      >
+        <StatusDot status="connecting" />
         <span className="animate-pulse">Connecting...</span>
       </Button>
     );
   }
 
-  // Show connected state with dropdown
   if (wallet.connected && address) {
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
             variant="outline"
-            size="sm"
-            className="font-mono min-w-[140px]"
+            size={size}
+            className={cn("font-mono min-w-[140px] gap-2", className)}
+            title={address}
           >
+            <StatusDot status="connected" />
             {truncateAddress(address)}
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
+        <DropdownMenuContent align={align}>
           <DropdownMenuLabel>Wallet</DropdownMenuLabel>
           <DropdownMenuItem onSelect={handleCopy}>
             Copy address
@@ -112,10 +105,18 @@ export function WalletButton() {
     );
   }
 
-  // Show connect button
   return (
-    <div className="wallet-adapter-button-container">
-      <WalletBtn />
-    </div>
+    <Button
+      variant="default"
+      size={size}
+      className={cn("gap-2", className)}
+      onClick={() => setShowModal(true)}
+    >
+      <StatusDot status="idle" />
+      <Wallet className="h-4 w-4" />
+      <span>Connect wallet</span>
+    </Button>
   );
 }
+
+export const WalletButton = WalletConnectButton;
