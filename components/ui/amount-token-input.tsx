@@ -55,12 +55,12 @@ export function AmountTokenInput({
           placeholder="0.00"
           value={amount}
           onChange={(event) => onAmountChange(event.target.value)}
-          className="flex-1 h-12 text-lg font-medium border border-border/40 rounded-lg bg-background/50 px-4 py-3"
+          className="flex-1 h-12 text-lg font-medium border border-border/40 rounded-sm bg-background/50 px-4 py-3"
           aria-label="Amount"
         />
         <Select value={token} onValueChange={(value) => onTokenChange(value as TokenMint)}>
           <SelectTrigger
-            className="w-24 h-12 border border-border/40 rounded-lg bg-background/50 font-medium"
+            className="w-24 h-12 border border-border/40 rounded-sm bg-background/50 font-medium"
             aria-label="Token"
           >
             <SelectValue>
