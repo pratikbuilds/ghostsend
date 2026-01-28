@@ -45,8 +45,8 @@ export function AmountTokenInput({
 
   return (
     <div className={cn("space-y-3", className)}>
-      <div className="flex items-center gap-3">
-        <Input
+      <div className="relative flex items-stretch h-12 rounded-sm border border-border/40 bg-background/50 overflow-hidden focus-within:ring-1 focus-within:ring-ring/50 focus-within:border-ring transition-colors">
+        <input
           type="number"
           inputMode="decimal"
           name="amount"
@@ -55,24 +55,29 @@ export function AmountTokenInput({
           placeholder="0.00"
           value={amount}
           onChange={(event) => onAmountChange(event.target.value)}
-          className="flex-1 h-12 text-lg font-medium border border-border/40 rounded-sm bg-background/50 px-4 py-3"
+          className="flex-1 h-full text-lg font-medium bg-transparent px-4 py-0 outline-none placeholder:text-muted-foreground [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [-moz-appearance:textfield]"
           aria-label="Amount"
         />
-        <Select value={token} onValueChange={(value) => onTokenChange(value as TokenMint)}>
+        <Select
+          value={token}
+          onValueChange={(value) => onTokenChange(value as TokenMint)}
+        >
           <SelectTrigger
-            className="w-24 h-12 border border-border/40 rounded-sm bg-background/50 font-medium"
+            className="h-full! min-w-[140px] border-0! rounded-none bg-transparent font-medium px-4 py-0! shadow-none hover:bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 m-0 shrink-0"
             aria-label="Token"
           >
             <SelectValue>
               {selectedToken ? (
-                <span className="flex items-center gap-2">
+                <span className="flex items-center gap-2.5">
                   <img
                     src={selectedToken.icon}
                     alt={`${selectedToken.label} icon`}
-                    className="h-4 w-4"
+                    className="h-6 w-6 rounded-full shrink-0"
                     loading="lazy"
                   />
-                  <span>{selectedToken.label}</span>
+                  <span className="uppercase  text-sm font-semibold">
+                    {selectedToken.label}
+                  </span>
                 </span>
               ) : null}
             </SelectValue>
@@ -84,17 +89,17 @@ export function AmountTokenInput({
                 value={option.mint}
                 textValue={option.label}
               >
-                <span className="flex items-center gap-2">
+                <span className="flex items-center gap-2.5">
                   <img
                     src={option.icon}
                     alt={`${option.label} icon`}
-                    className="h-4 w-4"
+                    className="h-5 w-5 rounded-full shrink-0"
                     loading="lazy"
                   />
                   <span className="flex items-center gap-2">
-                    <span>{option.label}</span>
+                    <span className="uppercase ">{option.label}</span>
                     {option.note ? (
-                      <span className="text-muted-foreground text-xs">
+                      <span className="text-muted-foreground text-xs normal-case">
                         ({option.note})
                       </span>
                     ) : null}
