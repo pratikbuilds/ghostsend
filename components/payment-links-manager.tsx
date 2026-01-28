@@ -115,30 +115,27 @@ export function PaymentLinksManager() {
     <Tabs
       value={activeTab}
       onValueChange={(value: string) => setActiveTab(value as TabKey)}
-      className="space-y-4"
+      className="space-y-2"
     >
       <div className="space-y-6">
-        <TabsList
-          variant={"line"}
-          className="grid w-full grid-cols-3 gap-0 rounded-none  bg-transparent p-0"
-        >
+        <TabsList variant="pill" className="mx-auto">
           <TabsTrigger
             value="request"
-            className="  text-base font-mono text-white data-[state=active]:border-b-cyan-500 data-[state=active]:text-white data-[state=active]:bg-transparent data-[state=active]:shadow-none "
+            className="text-xs font-mono uppercase tracking-wide"
           >
-            Request Payment
+            Create Link
           </TabsTrigger>
           <TabsTrigger
             value="links"
-            className="rounded-none border-b-2 border-b-transparent px-0 py-3 text-base font-mono text-slate-400 data-[state=active]:border-b-cyan-500 data-[state=active]:text-white data-[state=active]:bg-transparent data-[state=active]:shadow-none hover:bg-transparent/50"
+            className="text-xs font-mono uppercase tracking-wide"
           >
-            Created Links
+            Created
           </TabsTrigger>
           <TabsTrigger
             value="history"
-            className="rounded-none border-b-2 border-b-transparent px-0 py-3 text-base font-mono text-slate-400 data-[state=active]:border-b-cyan-500 data-[state=active]:text-white data-[state=active]:bg-transparent data-[state=active]:shadow-none hover:bg-transparent/50"
+            className="text-xs font-mono uppercase tracking-wide"
           >
-            Payment History
+            History
           </TabsTrigger>
         </TabsList>
 

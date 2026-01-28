@@ -25,12 +25,15 @@ function Tabs({
 }
 
 const tabsListVariants = cva(
-  "rounded-none p-[3px] group-data-horizontal/tabs:h-8 data-[variant=line]:rounded-none group/tabs-list text-muted-foreground inline-flex w-fit items-center justify-center group-data-[orientation=vertical]/tabs:h-fit group-data-[orientation=vertical]/tabs:flex-col",
+  "group/tabs-list text-muted-foreground inline-flex items-center justify-center group-data-[orientation=vertical]/tabs:h-fit group-data-[orientation=vertical]/tabs:flex-col",
   {
     variants: {
       variant: {
-        default: "bg-muted",
-        line: "gap-1 bg-transparent",
+        default:
+          "rounded-none p-[3px] group-data-horizontal/tabs:h-8 w-fit rounded-none",
+        line: "gap-1 rounded-none p-0 group-data-horizontal/tabs:h-8 w-fit bg-transparent",
+        pill:
+          "rounded-full p-1 gap-0 w-fit bg-card/80 border border-border/60 overflow-hidden",
       },
     },
     defaultVariants: {
@@ -67,6 +70,7 @@ function TabsTrigger({
         "group-data-[variant=line]/tabs-list:bg-transparent group-data-[variant=line]/tabs-list:data-active:bg-transparent dark:group-data-[variant=line]/tabs-list:data-active:border-transparent dark:group-data-[variant=line]/tabs-list:data-active:bg-transparent",
         "data-active:bg-background dark:data-active:text-foreground dark:data-active:border-input dark:data-active:bg-input/30 data-active:text-foreground",
         "after:bg-foreground after:absolute after:opacity-0 after:transition-opacity group-data-[orientation=horizontal]/tabs:after:inset-x-0 group-data-[orientation=horizontal]/tabs:after:bottom-[-5px] group-data-[orientation=horizontal]/tabs:after:h-0.5 group-data-[orientation=vertical]/tabs:after:inset-y-0 group-data-[orientation=vertical]/tabs:after:-right-1 group-data-[orientation=vertical]/tabs:after:w-0.5 group-data-[variant=line]/tabs-list:data-active:after:opacity-100",
+        "group-data-[variant=pill]/tabs-list:rounded-full group-data-[variant=pill]/tabs-list:h-auto group-data-[variant=pill]/tabs-list:border-0 group-data-[variant=pill]/tabs-list:bg-transparent group-data-[variant=pill]/tabs-list:text-muted-foreground group-data-[variant=pill]/tabs-list:px-4 group-data-[variant=pill]/tabs-list:py-1.5 group-data-[variant=pill]/tabs-list:data-[state=active]:bg-cyan-500 group-data-[variant=pill]/tabs-list:data-[state=active]:text-white group-data-[variant=pill]/tabs-list:after:hidden",
         className
       )}
       {...props}
