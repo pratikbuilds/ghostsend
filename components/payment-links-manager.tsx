@@ -126,10 +126,7 @@ export function PaymentLinksManager() {
             >
               Create Link
             </TabsTrigger>
-            <TabsTrigger
-              value="links"
-              className="text-xs font-mono uppercase"
-            >
+            <TabsTrigger value="links" className="text-xs font-mono uppercase">
               Created
             </TabsTrigger>
             <TabsTrigger
@@ -149,7 +146,7 @@ export function PaymentLinksManager() {
 
         <TabsContent
           value="request"
-          className="mt-0 flex-1 min-h-0 overflow-auto outline-none"
+          className="mt-0 flex-initial min-h-0 outline-none"
         >
           <PaymentLinkCreator onCreated={handleCreated} />
         </TabsContent>

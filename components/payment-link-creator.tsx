@@ -30,7 +30,13 @@ import { Link2, CheckCircle2, Copy, Check } from "lucide-react";
 
 type CreatedLink = { metadata: PaymentLinkMetadata; url: string };
 
-function CopyButtonWithIcon({ text, className }: { text: string; className?: string }) {
+function CopyButtonWithIcon({
+  text,
+  className,
+}: {
+  text: string;
+  className?: string;
+}) {
   const [copied, setCopied] = useState(false);
   const handleCopy = async () => {
     try {
@@ -48,8 +54,9 @@ function CopyButtonWithIcon({ text, className }: { text: string; className?: str
       size="sm"
       className={cn(
         "h-11 shrink-0 gap-2 rounded-lg border-primary/30 bg-primary/5 px-4 font-medium text-primary hover:bg-primary/10 hover:border-primary/50 transition-all [&_svg]:size-4",
-        copied && "border-green-500/40 bg-green-500/10 text-green-600 dark:text-green-400",
-        className
+        copied &&
+          "border-green-500/40 bg-green-500/10 text-green-600 dark:text-green-400",
+        className,
       )}
     >
       {copied ? (
@@ -178,13 +185,17 @@ export function PaymentLinkCreator({ onCreated }: PaymentLinkCreatorProps) {
               className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 ring-2 ring-primary/20"
               aria-hidden
             >
-              <CheckCircle2 className="h-8 w-8 text-primary" strokeWidth={1.75} />
+              <CheckCircle2
+                className="h-8 w-8 text-primary"
+                strokeWidth={1.75}
+              />
             </div>
             <CardTitle className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
               Payment link ready
             </CardTitle>
             <CardDescription className="text-sm text-muted-foreground">
-              Share the link below — recipients can pay without seeing your wallet
+              Share the link below — recipients can pay without seeing your
+              wallet
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6 px-6 pb-8 pt-4">

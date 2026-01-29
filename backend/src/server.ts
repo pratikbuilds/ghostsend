@@ -38,9 +38,17 @@ type WithdrawSplResult = {
 
 const RPC_URL =
   process.env.SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com";
+// Resolve circuit files from privacycash package (works in deploy; no dependency on ../public)
 const KEY_BASE_PATH =
   process.env.KEY_BASE_PATH ||
-  path.resolve(process.cwd(), "..", "public", "circuit2", "transaction2");
+  path.resolve(
+    __dirname,
+    "..",
+    "node_modules",
+    "privacycash",
+    "circuit2",
+    "transaction2",
+  );
 const PORT = Number(process.env.PORT || 4000);
 
 // ==========================================================
