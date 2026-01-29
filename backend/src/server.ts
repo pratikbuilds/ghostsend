@@ -1,6 +1,7 @@
 import "dotenv/config";
 import Fastify from "fastify";
 import cors from "@fastify/cors";
+import fs from "fs";
 import path from "path";
 import { Connection, PublicKey } from "@solana/web3.js";
 import { paymentLinksRoutes } from "./routes/payment-links";
@@ -38,17 +39,54 @@ type WithdrawSplResult = {
 
 const RPC_URL =
   process.env.SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com";
-// Resolve circuit files from privacycash package (works in deploy; no dependency on ../public)
-const KEY_BASE_PATH =
-  process.env.KEY_BASE_PATH ||
-  path.resolve(
+
+// Find monorepo root public/circuit2 (shared with frontend) by walking up from cwd or __dirname
+function findSharedCircuitBase(): string | null {
+  const wasmName = "transaction2.wasm";
+  const zkeyName = "transaction2.zkey";
+  const searchRoots = [
+    process.cwd(),
     __dirname,
-    "..",
-    "node_modules",
-    "privacycash",
-    "circuit2",
-    "transaction2",
-  );
+    path.resolve(__dirname, ".."),
+    path.resolve(__dirname, "..", ".."),
+  ];
+  for (const root of searchRoots) {
+    let dir = path.resolve(root);
+    for (let i = 0; i < 5; i++) {
+      const publicCircuit = path.join(
+        dir,
+        "public",
+        "circuit2",
+        "transaction2",
+      );
+      if (
+        fs.existsSync(publicCircuit + ".wasm") &&
+        fs.existsSync(publicCircuit + ".zkey")
+      ) {
+        return publicCircuit;
+      }
+      const parent = path.dirname(dir);
+      if (parent === dir) break;
+      dir = parent;
+    }
+  }
+  return null;
+}
+
+const BACKEND_NODE_MODULES_CIRCUIT = path.resolve(
+  __dirname,
+  "..",
+  "node_modules",
+  "privacycash",
+  "circuit2",
+  "transaction2",
+);
+const KEY_BASE_PATH = (() => {
+  if (process.env.KEY_BASE_PATH) return process.env.KEY_BASE_PATH;
+  const shared = findSharedCircuitBase();
+  if (shared) return shared;
+  return BACKEND_NODE_MODULES_CIRCUIT;
+})();
 const PORT = Number(process.env.PORT || 4000);
 
 // ==========================================================
@@ -317,7 +355,10 @@ app
   .listen({ port: PORT, host: "0.0.0.0" })
   .then(() => {
     console.log(`[prover-backend] listening on :${PORT}`);
-    console.log(`[prover-backend] using KEY_BASE_PATH: ${KEY_BASE_PATH}`);
+    const isShared = KEY_BASE_PATH.includes("public" + path.sep + "circuit2");
+    console.log(
+      `[prover-backend] circuit path: ${KEY_BASE_PATH} (shared public: ${isShared})`,
+    );
   })
   .catch((err) => {
     console.error("[prover-backend] failed to start", err);

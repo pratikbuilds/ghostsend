@@ -3,11 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "pnpm exec next dev",
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
-    "postinstall": "cp node_modules/@lightprotocol/hasher.rs/dist/hasher_wasm_simd_bg.wasm node_modules/@lightprotocol/hasher.rs/dist/browser-fat/es/ && cp node_modules/@lightprotocol/hasher.rs/dist/light_wasm_hasher_bg.wasm node_modules/@lightprotocol/hasher.rs/dist/browser-fat/es/ && mkdir -p public/circuit2 && cp node_modules/privacycash/circuit2/* public/circuit2/"
+    "postinstall": "cp node_modules/@lightprotocol/hasher.rs/dist/hasher_wasm_simd_bg.wasm node_modules/@lightprotocol/hasher.rs/dist/browser-fat/es/ && cp node_modules/@lightprotocol/hasher.rs/dist/light_wasm_hasher_bg.wasm node_modules/@lightprotocol/hasher.rs/dist/browser-fat/es/ && mkdir -p public/circuit2 && cp node_modules/privacycash/circuit2/* public/circuit2/",
+    "backend:dev": "pnpm -C backend dev",
+    "backend:build": "pnpm -C backend build",
+    "backend:start": "pnpm -C backend start"
   },
   "dependencies": {
     "@base-ui/react": "^1.0.0",
