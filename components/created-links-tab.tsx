@@ -6,11 +6,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CopyButton } from "@/components/ui/copy-button";
 import { Input } from "@/components/ui/input";
-import type { PaymentLinkMetadata } from "@/lib/payment-links-types";
+import type { PaymentLinkPublicInfo } from "@/lib/payment-links-types";
 import { formatTokenAmount, getTokenByMint } from "@/lib/token-registry";
 
 interface CreatedLinksTabProps {
-  links: PaymentLinkMetadata[];
+  links: PaymentLinkPublicInfo[];
   loading: boolean;
   onDelete: (paymentId: string) => void;
   isWalletConnected: boolean;
@@ -62,12 +62,14 @@ export function CreatedLinksTab({
       {links.map((link) => {
         const url = baseUrl ? `${baseUrl}/pay/${link.paymentId}` : "";
         const createdAt = new Date(link.createdAt).toLocaleString();
-        const statusLabel = link.status === "completed" ? "Completed" : "Pending";
+        const statusLabel =
+          link.status === "completed" ? "Completed" : "Pending";
         const token = getTokenByMint(link.tokenMint);
         const amountLabel = token
           ? `${formatTokenAmount(link.fixedAmount ?? 0, token)} ${token.label}`
           : "Unknown token";
-        const canShare = typeof navigator !== "undefined" && Boolean(navigator.share);
+        const canShare =
+          typeof navigator !== "undefined" && Boolean(navigator.share);
 
         return (
           <Card key={link.paymentId}>
@@ -79,7 +81,11 @@ export function CreatedLinksTab({
                     Created {createdAt}
                   </div>
                 </div>
-                <Badge variant={link.status === "completed" ? "secondary" : "outline"}>
+                <Badge
+                  variant={
+                    link.status === "completed" ? "secondary" : "outline"
+                  }
+                >
                   {statusLabel}
                 </Badge>
               </div>

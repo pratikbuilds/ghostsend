@@ -8,7 +8,7 @@ import { CreatedLinksTab } from "@/components/created-links-tab";
 import { PaymentHistoryTab } from "@/components/payment-history-tab";
 import { PaymentLinksAPI } from "@/lib/api-service";
 import type {
-  PaymentLinkMetadata,
+  PaymentLinkPublicInfo,
   PaymentRecord,
 } from "@/lib/payment-links-types";
 
@@ -17,7 +17,7 @@ type TabKey = "request" | "links" | "history";
 export function PaymentLinksManager() {
   const { publicKey } = useWallet();
   const [activeTab, setActiveTab] = useState<TabKey>("request");
-  const [createdLinks, setCreatedLinks] = useState<PaymentLinkMetadata[]>([]);
+  const [createdLinks, setCreatedLinks] = useState<PaymentLinkPublicInfo[]>([]);
   const [paymentHistory, setPaymentHistory] = useState<PaymentRecord[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loadingLinks, setLoadingLinks] = useState(false);
@@ -78,7 +78,7 @@ export function PaymentLinksManager() {
   }, [activeTab, publicKey, refreshLinks, refreshHistory]);
 
   const handleCreated = useCallback(
-    (created: { metadata: PaymentLinkMetadata }) => {
+    (created: { metadata: PaymentLinkPublicInfo }) => {
       setCreatedLinks((prev) => [created.metadata, ...prev]);
     },
     [],
@@ -126,10 +126,7 @@ export function PaymentLinksManager() {
             >
               Create Link
             </TabsTrigger>
-            <TabsTrigger
-              value="links"
-              className="text-xs font-mono uppercase"
-            >
+            <TabsTrigger value="links" className="text-xs font-mono uppercase">
               Created
             </TabsTrigger>
             <TabsTrigger

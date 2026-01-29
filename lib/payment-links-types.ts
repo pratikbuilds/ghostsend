@@ -58,6 +58,7 @@ export interface PaymentLinkPublicInfo {
   label?: string;
   message?: string;
   reusable: boolean;
+  createdAt: number;
   status: PaymentLinkStatus;
   usageCount: number;
 }
@@ -83,13 +84,13 @@ export interface CreatePaymentLinkRequest {
  */
 export interface CreatePaymentLinkResponse {
   success: boolean;
-  paymentLink: PaymentLinkMetadata;
+  paymentLink: PaymentLinkPublicInfo;
   url: string;
 }
 
 export interface PaymentLinksListResponse {
   success: boolean;
-  paymentLinks: PaymentLinkMetadata[];
+  paymentLinks: PaymentLinkPublicInfo[];
 }
 
 export interface PaymentHistoryResponse {

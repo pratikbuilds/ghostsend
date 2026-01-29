@@ -27,7 +27,7 @@ import {
   signSessionMessage,
   WalletAdapter,
 } from "@/lib/privacy-cash";
-import { PaymentLinksAPI, PrivacyCashAPI } from "@/lib/api-service";
+import { PaymentLinksAPI } from "@/lib/api-service";
 import type { PaymentLinkPublicInfo } from "@/lib/payment-links-types";
 import {
   formatTokenAmount,
@@ -424,50 +424,35 @@ export function PaymentReceiver({
 
     try {
       const walletAdapter = getWalletAdapter();
-      const recipientResult = await PaymentLinksAPI.getRecipient(
-        paymentId,
-        amountBaseUnits,
-      );
-
-      if (!recipientResult.success || !recipientResult.data) {
-        throw new Error(recipientResult.error || "Failed to get recipient");
-      }
-
+      // Same as before: total to deduct (recipient + fee) for SDK; backend resolves recipient from paymentId
       const totalToDeduct =
         payFeeBreakdown?.totalFromPrivateBaseUnits ?? amountBaseUnits;
 
-      const withdrawResult = await (async () => {
+      await (async () => {
         const existingSignature = getSessionSignature(walletAdapter.publicKey);
         const signature =
           existingSignature ?? (await signSessionMessage(walletAdapter));
         const signatureBase64 = toBase64(signature);
 
-        const withdrawApiResult = isSolToken
-          ? await PrivacyCashAPI.withdraw({
-              amountLamports: totalToDeduct,
-              recipient: recipientResult.data!.recipientAddress,
-              publicKey: walletAdapter.publicKey.toBase58(),
-              signature: signatureBase64,
-            })
-          : await PrivacyCashAPI.withdrawSpl({
-              amountBaseUnits: totalToDeduct,
-              mintAddress: token.mint,
-              recipient: recipientResult.data!.recipientAddress,
-              publicKey: walletAdapter.publicKey.toBase58(),
-              signature: signatureBase64,
-            });
+        const withdrawApiResult = await PaymentLinksAPI.withdrawPayment(
+          paymentId,
+          isSolToken
+            ? {
+                amountLamports: totalToDeduct,
+                publicKey: walletAdapter.publicKey.toBase58(),
+                signature: signatureBase64,
+              }
+            : {
+                amountBaseUnits: totalToDeduct,
+                publicKey: walletAdapter.publicKey.toBase58(),
+                signature: signatureBase64,
+              },
+        );
 
         if (!withdrawApiResult.success) {
           throw new Error(withdrawApiResult.error || "Backend withdraw failed");
         }
-
-        return withdrawApiResult.data!.result;
       })();
-
-      await PaymentLinksAPI.completePayment(paymentId, {
-        txSignature: withdrawResult.tx,
-        amount: amountBaseUnits,
-      });
 
       setStatus("success");
       setLogQueue([]);
