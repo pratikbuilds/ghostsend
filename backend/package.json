@@ -2,7 +2,10 @@
   "name": "privacy-cash-prover-backend",
   "version": "0.1.0",
   "private": true,
-  "type": "commonjs",
+  "engines": {
+    "node": ">=22"
+  },
+  "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc -p tsconfig.json",
