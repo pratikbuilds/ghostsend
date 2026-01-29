@@ -5,25 +5,26 @@
  * For production, replace with Redis or PostgreSQL.
  */
 
-import { nanoid } from 'nanoid';
-import { tokens as sdkTokens } from 'privacycash/utils';
+import { nanoid } from "nanoid";
+import { tokens as sdkTokens } from "privacycash/utils";
+import type { SDKToken } from "../../types/sdk";
 import type {
   PaymentLinkMetadata,
   PaymentLinkPublicInfo,
   CreatePaymentLinkRequest,
   PaymentRecord,
   TokenMint,
-} from '../../types/payment-links';
+} from "../../types/payment-links";
 
 // In-memory store
 const paymentLinks = new Map<string, PaymentLinkMetadata>();
 const paymentRecords: PaymentRecord[] = [];
 
-const tokenByMint = new Map(
-  sdkTokens.map((token) => [
-    typeof token.pubkey === 'string' ? token.pubkey : token.pubkey.toBase58(),
+const tokenByMint = new Map<string, SDKToken>(
+  sdkTokens.map((token: SDKToken) => [
+    typeof token.pubkey === "string" ? token.pubkey : token.pubkey.toBase58(),
     token,
-  ])
+  ]),
 );
 
 function getDecimals(unitsPerToken: number) {
@@ -36,7 +37,7 @@ function getDecimals(unitsPerToken: number) {
   return decimals;
 }
 
-function formatAmountForToken(amount: number, tokenMint: string) {
+function formatAmountForToken(amount: number, tokenMint: string): string {
   const token = tokenByMint.get(tokenMint);
   if (!token) return `${amount} base units`;
   const value = amount / token.units_per_token;
@@ -72,23 +73,27 @@ export const PaymentLinksStore = {
 
     // Validate request
     if (!request.recipientAddress) {
-      throw new Error('Recipient address is required');
+      throw new Error("Recipient address is required");
     }
 
-    if (request.amountType === 'fixed' && !request.fixedAmount) {
-      throw new Error('Fixed amount is required for fixed amount type');
+    if (request.amountType === "fixed" && !request.fixedAmount) {
+      throw new Error("Fixed amount is required for fixed amount type");
     }
 
-    if (request.amountType === 'fixed' && request.fixedAmount! <= 0) {
-      throw new Error('Fixed amount must be positive');
+    if (request.amountType === "fixed" && request.fixedAmount! <= 0) {
+      throw new Error("Fixed amount must be positive");
     }
 
     if (request.minAmount && request.minAmount < 0) {
-      throw new Error('Min amount cannot be negative');
+      throw new Error("Min amount cannot be negative");
     }
 
-    if (request.maxAmount && request.minAmount && request.maxAmount < request.minAmount) {
-      throw new Error('Max amount must be greater than min amount');
+    if (
+      request.maxAmount &&
+      request.minAmount &&
+      request.maxAmount < request.minAmount
+    ) {
+      throw new Error("Max amount must be greater than min amount");
     }
 
     const metadata: PaymentLinkMetadata = {
@@ -104,7 +109,7 @@ export const PaymentLinksStore = {
       label: request.label,
       message: request.message,
       createdAt: Date.now(),
-      status: 'active',
+      status: "active",
       usageCount: 0,
     };
 
@@ -135,30 +140,34 @@ export const PaymentLinksStore = {
   canAcceptPayment(paymentId: string): boolean {
     const link = paymentLinks.get(paymentId);
     if (!link) return false;
-    if (link.status !== 'active') return false;
+    if (link.status !== "active") return false;
     if (!link.reusable && link.usageCount > 0) return false;
-    if (link.maxUsageCount && link.usageCount >= link.maxUsageCount) return false;
+    if (link.maxUsageCount && link.usageCount >= link.maxUsageCount)
+      return false;
     return true;
   },
 
   /**
    * Validate payment amount against link requirements
    */
-  validateAmount(paymentId: string, amount: number): { valid: boolean; error?: string } {
+  validateAmount(
+    paymentId: string,
+    amount: number,
+  ): { valid: boolean; error?: string } {
     const link = paymentLinks.get(paymentId);
-    if (!link) return { valid: false, error: 'Payment link not found' };
+    if (!link) return { valid: false, error: "Payment link not found" };
 
     if (amount <= 0) {
-      return { valid: false, error: 'Amount must be positive' };
+      return { valid: false, error: "Amount must be positive" };
     }
 
-    if (link.amountType === 'fixed') {
+    if (link.amountType === "fixed") {
       if (amount !== link.fixedAmount) {
         return {
           valid: false,
           error: `Amount must be exactly ${formatAmountForToken(
             link.fixedAmount ?? 0,
-            link.tokenMint
+            link.tokenMint,
           )}`,
         };
       }
@@ -169,7 +178,7 @@ export const PaymentLinksStore = {
           valid: false,
           error: `Amount must be at least ${formatAmountForToken(
             link.minAmount,
-            link.tokenMint
+            link.tokenMint,
           )}`,
         };
       }
@@ -178,7 +187,7 @@ export const PaymentLinksStore = {
           valid: false,
           error: `Amount cannot exceed ${formatAmountForToken(
             link.maxAmount,
-            link.tokenMint
+            link.tokenMint,
           )}`,
         };
       }
@@ -198,12 +207,12 @@ export const PaymentLinksStore = {
 
     // Mark as completed if one-time link
     if (!link.reusable) {
-      link.status = 'completed';
+      link.status = "completed";
     }
 
     // Mark as completed if reached max usage
     if (link.maxUsageCount && link.usageCount >= link.maxUsageCount) {
-      link.status = 'completed';
+      link.status = "completed";
     }
 
     paymentLinks.set(paymentId, link);
@@ -212,7 +221,10 @@ export const PaymentLinksStore = {
   /**
    * Update payment link status
    */
-  updatePaymentLinkStatus(paymentId: string, status: PaymentLinkMetadata['status']): void {
+  updatePaymentLinkStatus(
+    paymentId: string,
+    status: PaymentLinkMetadata["status"],
+  ): void {
     const link = paymentLinks.get(paymentId);
     if (!link) return;
     link.status = status;
@@ -224,7 +236,7 @@ export const PaymentLinksStore = {
    */
   listPaymentLinksByRecipient(recipientAddress: string): PaymentLinkMetadata[] {
     return Array.from(paymentLinks.values()).filter(
-      (link) => link.recipientAddress === recipientAddress
+      (link) => link.recipientAddress === recipientAddress,
     );
   },
 
@@ -235,7 +247,7 @@ export const PaymentLinksStore = {
     paymentId: string,
     amount: number,
     tokenMint: TokenMint,
-    txSignature: string
+    txSignature: string,
   ): PaymentRecord {
     const record: PaymentRecord = {
       id: nanoid(12),
@@ -244,7 +256,7 @@ export const PaymentLinksStore = {
       amount,
       txSignature,
       completedAt: Date.now(),
-      status: 'completed',
+      status: "completed",
     };
 
     paymentRecords.push(record);
@@ -257,10 +269,14 @@ export const PaymentLinksStore = {
    */
   listPaymentRecordsByRecipient(recipientAddress: string): PaymentRecord[] {
     const recipientLinks = new Set(
-      this.listPaymentLinksByRecipient(recipientAddress).map((link) => link.paymentId)
+      this.listPaymentLinksByRecipient(recipientAddress).map(
+        (link) => link.paymentId,
+      ),
     );
 
-    return paymentRecords.filter((record) => recipientLinks.has(record.paymentId));
+    return paymentRecords.filter((record) =>
+      recipientLinks.has(record.paymentId),
+    );
   },
 
   /**
