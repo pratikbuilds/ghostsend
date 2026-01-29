@@ -10,7 +10,7 @@ export function Header() {
         <div className="flex items-center justify-between">
           <div className="logo-container">
             <Image
-              src="/logo.png"
+              src="/new_logo.png"
               alt="ghostsend logo"
               width={40}
               height={40}

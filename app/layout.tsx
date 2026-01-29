@@ -22,8 +22,26 @@ export const metadata: Metadata = {
   title: "ghostsend | Private Payments on Solana",
   description:
     "Send and receive private payments on Solana with zero-knowledge proofs. Your transactions, your privacy.",
+  metadataBase: new URL("https://ghostsend.xyz"),
   icons: {
-    icon: "/ghostsend.svg",
+    icon: "/new_logo.png",
+    apple: "/new_logo.png",
+  },
+  openGraph: {
+    title: "ghostsend | Private Payments on Solana",
+    description:
+      "Send and receive private payments on Solana with zero-knowledge proofs. Your transactions, your privacy.",
+    url: "https://ghostsend.xyz",
+    siteName: "ghostsend",
+    images: ["/new_logo.png"],
+    type: "website",
+  },
+  twitter: {
+    card: "summary",
+    title: "ghostsend | Private Payments on Solana",
+    description:
+      "Send and receive private payments on Solana with zero-knowledge proofs.",
+    images: ["/new_logo.png"],
   },
 };
 

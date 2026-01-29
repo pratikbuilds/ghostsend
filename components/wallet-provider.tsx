@@ -16,7 +16,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           description:
             "GhostSend allows you to accept payments privately and anonymously.",
           url: "https://ghostsend.xyz",
-          iconUrls: ["/favicon.ico"],
+          iconUrls: ["/new_logo.png"],
         },
         theme: "dark",
         lang: "en",
