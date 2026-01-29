@@ -5,7 +5,7 @@
   "engines": {
     "node": ">=22"
   },
-  "type": "module",
+  "type": "commonjs",
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc -p tsconfig.json",
