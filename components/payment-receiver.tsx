@@ -2,12 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useWallet } from "@jup-ag/wallet-adapter";
-import {
-  Connection,
-  LAMPORTS_PER_SOL,
-  PublicKey,
-  VersionedTransaction,
-} from "@solana/web3.js";
+import { Connection, PublicKey, VersionedTransaction } from "@solana/web3.js";
 import { getAssociatedTokenAddress } from "@solana/spl-token";
 import {
   Card,
@@ -42,8 +37,22 @@ import {
   isSolMint,
   parseTokenAmountToBaseUnits,
 } from "@/lib/token-registry";
+import {
+  getRelayerConfig,
+  computeTotalLamportsForRecipient,
+  computeTotalBaseUnitsForRecipientSPL,
+} from "@/lib/fee-config";
 import { Typewriter } from "@/components/ui/typewriter";
 import { cn } from "@/lib/utils";
+import {
+  Wallet,
+  FileSignature,
+  Send,
+  Loader2,
+  ShieldCheck,
+  Terminal,
+  CheckCircle2,
+} from "lucide-react";
 
 const RPC_URL =
   process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||
@@ -51,27 +60,52 @@ const RPC_URL =
 
 interface PaymentReceiverProps {
   paymentId: string;
+  /** When true, parent can hide page-level intro to avoid two log areas during sign step */
+  onSigningChange?: (isSigning: boolean) => void;
 }
 
-type PaymentStatus = "idle" | "checking" | "depositing" | "paying" | "success" | "error";
+type PaymentStatus =
+  | "idle"
+  | "checking"
+  | "depositing"
+  | "paying"
+  | "success"
+  | "error";
 
-export function PaymentReceiver({ paymentId }: PaymentReceiverProps) {
+export function PaymentReceiver({
+  paymentId,
+  onSigningChange,
+}: PaymentReceiverProps) {
   const { publicKey, signMessage, signTransaction } = useWallet();
   const [connection] = useState(() => new Connection(RPC_URL, "confirmed"));
 
-  const [paymentLink, setPaymentLink] = useState<PaymentLinkPublicInfo | null>(null);
+  const [paymentLink, setPaymentLink] = useState<PaymentLinkPublicInfo | null>(
+    null,
+  );
   const [loadingLink, setLoadingLink] = useState(true);
   const [linkError, setLinkError] = useState<string | null>(null);
 
   const [amount, setAmount] = useState("");
   const [status, setStatus] = useState<PaymentStatus>("idle");
   const [error, setError] = useState<string | null>(null);
-  const [publicBalanceBaseUnits, setPublicBalanceBaseUnits] = useState<number | null>(null);
-  const [privateBalanceBaseUnits, setPrivateBalanceBaseUnits] = useState<number | null>(null);
+  const [publicBalanceBaseUnits, setPublicBalanceBaseUnits] = useState<
+    number | null
+  >(null);
+  const [privateBalanceBaseUnits, setPrivateBalanceBaseUnits] = useState<
+    number | null
+  >(null);
   const [balancesChecked, setBalancesChecked] = useState(false);
   const [logQueue, setLogQueue] = useState<string[]>([]);
   const [displayLogs, setDisplayLogs] = useState<string[]>([]);
+  const [activityLogs, setActivityLogs] = useState<string[]>([]);
+  const [activityExiting, setActivityExiting] = useState(false);
+  const [relayerConfig, setRelayerConfig] =
+    useState<Awaited<ReturnType<typeof getRelayerConfig>>>(null);
   const lastLogRef = useRef<string | null>(null);
+  const activityLogsRef = useRef<HTMLDivElement>(null);
+  const activityExitTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
 
   const token = useMemo(
     () => (paymentLink ? getTokenByMint(paymentLink.tokenMint) : undefined),
@@ -95,7 +129,9 @@ export function PaymentReceiver({ paymentId }: PaymentReceiverProps) {
           setAmount("");
         }
       } catch (err) {
-        setLinkError(err instanceof Error ? err.message : "Failed to load payment link");
+        setLinkError(
+          err instanceof Error ? err.message : "Failed to load payment link",
+        );
       } finally {
         setLoadingLink(false);
       }
@@ -112,15 +148,15 @@ export function PaymentReceiver({ paymentId }: PaymentReceiverProps) {
 
   useEffect(() => {
     setLogger((level, message) => {
-      const prefix = level === "error" ? "Error" : level === "warn" ? "Warn" : "Info";
+      const prefix =
+        level === "error" ? "Error" : level === "warn" ? "Warn" : "Info";
       const nextMessage = `${prefix}: ${message}`;
       if (lastLogRef.current === nextMessage) return;
       lastLogRef.current = nextMessage;
       setLogQueue((prev) => [...prev, nextMessage]);
+      setActivityLogs((prev) => [...prev.slice(-11), nextMessage]);
     });
   }, []);
-
-
 
   const getWalletAdapter = useCallback((): WalletAdapter => {
     if (!publicKey || !signMessage || !signTransaction) {
@@ -160,7 +196,9 @@ export function PaymentReceiver({ paymentId }: PaymentReceiverProps) {
     if (!publicKey || !token) return;
     setStatus("checking");
     setError(null);
-    setLogQueue((prev) => [...prev, "Info: Requesting signature to check balances..."]);
+    const balanceLog = "Info: Requesting signature to check balances...";
+    setLogQueue((prev) => [...prev, balanceLog]);
+    setActivityLogs((prev) => [...prev.slice(-11), balanceLog]);
     try {
       const walletAdapter = getWalletAdapter();
 
@@ -192,9 +230,14 @@ export function PaymentReceiver({ paymentId }: PaymentReceiverProps) {
   }, [connection, getWalletAdapter, isSolToken, publicKey, token]);
 
   useEffect(() => {
-    if (!publicKey || !token || balancesChecked || status === "checking") return;
+    if (!publicKey || !token || balancesChecked || status === "checking")
+      return;
     fetchBalances();
   }, [balancesChecked, fetchBalances, publicKey, status, token]);
+
+  useEffect(() => {
+    getRelayerConfig().then(setRelayerConfig);
+  }, []);
 
   const formatAmount = useCallback(
     (baseUnits: number) => {
@@ -213,21 +256,44 @@ export function PaymentReceiver({ paymentId }: PaymentReceiverProps) {
   }, [amount, token]);
 
   const isValidAmount = amountBaseUnits > 0;
-  const feeRate = 0.0025;
-  const rentFeeBaseUnits = isSolToken ? Math.floor(0.001 * LAMPORTS_PER_SOL) : 0;
-  const estimatedFeeBaseUnits = isValidAmount
-    ? Math.floor(amountBaseUnits * feeRate + rentFeeBaseUnits)
-    : 0;
-  const requiredPrivateBaseUnits = isValidAmount
-    ? amountBaseUnits + estimatedFeeBaseUnits
-    : 0;
+
+  const payFeeBreakdown = useMemo(() => {
+    if (!isValidAmount || !token) return null;
+    if (isSolToken) {
+      const { totalLamports, feeLamports } = computeTotalLamportsForRecipient(
+        amountBaseUnits,
+        relayerConfig,
+      );
+      return {
+        toRecipientBaseUnits: amountBaseUnits,
+        feeBaseUnits: feeLamports,
+        totalFromPrivateBaseUnits: totalLamports,
+      };
+    }
+    const { totalBaseUnits, feeBaseUnits } =
+      computeTotalBaseUnitsForRecipientSPL(
+        amountBaseUnits,
+        token.unitsPerToken,
+        token.name,
+        relayerConfig,
+      );
+    return {
+      toRecipientBaseUnits: amountBaseUnits,
+      feeBaseUnits,
+      totalFromPrivateBaseUnits: totalBaseUnits,
+    };
+  }, [amountBaseUnits, isSolToken, isValidAmount, relayerConfig, token]);
+
+  const requiredPrivateBaseUnits =
+    payFeeBreakdown?.totalFromPrivateBaseUnits ?? 0;
 
   const shortfallBaseUnits =
     privateBalanceBaseUnits !== null
       ? Math.max(0, requiredPrivateBaseUnits - privateBalanceBaseUnits)
       : null;
 
-  const isBusy = status === "checking" || status === "depositing" || status === "paying";
+  const isBusy =
+    status === "checking" || status === "depositing" || status === "paying";
   const hasSufficientBalance =
     privateBalanceBaseUnits !== null &&
     privateBalanceBaseUnits >= requiredPrivateBaseUnits;
@@ -252,12 +318,53 @@ export function PaymentReceiver({ paymentId }: PaymentReceiverProps) {
     return () => clearInterval(interval);
   }, [isBusy, logQueue.length]);
 
+  useEffect(() => {
+    activityLogsRef.current?.scrollTo({
+      top: activityLogsRef.current.scrollHeight,
+      behavior: "smooth",
+    });
+  }, [activityLogs]);
+
+  const showActivityPanel =
+    (isBusy || activityExiting) && activityLogs.length > 0;
+  useEffect(() => {
+    if (isBusy) {
+      if (activityExitTimeoutRef.current) {
+        clearTimeout(activityExitTimeoutRef.current);
+        activityExitTimeoutRef.current = null;
+      }
+      setActivityExiting(false);
+      return;
+    }
+    if (activityLogs.length > 0 && !activityExiting) {
+      setActivityExiting(true);
+      activityExitTimeoutRef.current = setTimeout(() => {
+        setActivityExiting(false);
+        setActivityLogs([]);
+        activityExitTimeoutRef.current = null;
+      }, 280);
+    }
+    return () => {
+      if (activityExitTimeoutRef.current)
+        clearTimeout(activityExitTimeoutRef.current);
+    };
+  }, [isBusy, activityLogs.length, activityExiting]);
+
+  const isSigning = Boolean(publicKey && !balancesChecked && isBusy);
+  useEffect(() => {
+    onSigningChange?.(isSigning);
+    return () => onSigningChange?.(false);
+  }, [isSigning, onSigningChange]);
+
   const handleDeposit = useCallback(
     async (amountToDeposit: number) => {
       if (!publicKey || !token) return;
       setStatus("depositing");
       setError(null);
-      setLogQueue((prev) => [...prev, "Info: Preparing private deposit..."]);
+      const depositLog = "Info: Preparing private deposit...";
+      setLogQueue((prev) => [...prev, depositLog]);
+      setActivityLogs((prev) => [...prev.slice(-11), depositLog]);
+
       try {
         const walletAdapter = getWalletAdapter();
         const depositResult = isSolToken
@@ -283,8 +390,24 @@ export function PaymentReceiver({ paymentId }: PaymentReceiverProps) {
         setStatus("error");
       }
     },
-    [connection, fetchBalances, getWalletAdapter, isSolToken, publicKey, token]
+    [connection, fetchBalances, getWalletAdapter, isSolToken, publicKey, token],
   );
+
+  const isDepositing = status === "depositing";
+  const isPaying = status === "paying";
+  const isChecking = status === "checking";
+  const isError = status === "error";
+  const buttonLabel = isChecking
+    ? "Checking balance…"
+    : isDepositing
+      ? "Depositing…"
+      : isPaying
+        ? "Paying…"
+        : isError
+          ? "Try again"
+          : needsDeposit
+            ? `Deposit ${token && shortfallBaseUnits !== null ? `${formatAmount(shortfallBaseUnits)} ${token.label}` : "---"}`
+            : `Pay ${token ? `${formatAmount(amountBaseUnits)} ${token.label}` : "---"}`;
 
   const handlePay = useCallback(async () => {
     if (!paymentLink) return;
@@ -295,7 +418,9 @@ export function PaymentReceiver({ paymentId }: PaymentReceiverProps) {
     }
     setStatus("paying");
     setError(null);
-    setLogQueue((prev) => [...prev, "Info: Preparing private withdrawal..."]);
+    const payLog = "Info: Preparing private withdrawal...";
+    setLogQueue((prev) => [...prev, payLog]);
+    setActivityLogs((prev) => [...prev.slice(-11), payLog]);
 
     try {
       const walletAdapter = getWalletAdapter();
@@ -308,6 +433,9 @@ export function PaymentReceiver({ paymentId }: PaymentReceiverProps) {
         throw new Error(recipientResult.error || "Failed to get recipient");
       }
 
+      const totalToDeduct =
+        payFeeBreakdown?.totalFromPrivateBaseUnits ?? amountBaseUnits;
+
       const withdrawResult = await (async () => {
         const existingSignature = getSessionSignature(walletAdapter.publicKey);
         const signature =
@@ -316,13 +444,13 @@ export function PaymentReceiver({ paymentId }: PaymentReceiverProps) {
 
         const withdrawApiResult = isSolToken
           ? await PrivacyCashAPI.withdraw({
-              amountLamports: amountBaseUnits,
+              amountLamports: totalToDeduct,
               recipient: recipientResult.data!.recipientAddress,
               publicKey: walletAdapter.publicKey.toBase58(),
               signature: signatureBase64,
             })
           : await PrivacyCashAPI.withdrawSpl({
-              amountBaseUnits,
+              amountBaseUnits: totalToDeduct,
               mintAddress: token.mint,
               recipient: recipientResult.data!.recipientAddress,
               publicKey: walletAdapter.publicKey.toBase58(),
@@ -353,6 +481,7 @@ export function PaymentReceiver({ paymentId }: PaymentReceiverProps) {
     getWalletAdapter,
     isSolToken,
     isValidAmount,
+    payFeeBreakdown,
     paymentId,
     paymentLink,
     publicKey,
@@ -387,13 +516,18 @@ export function PaymentReceiver({ paymentId }: PaymentReceiverProps) {
     return btoa(binary);
   };
 
+  const cardClass =
+    "w-full max-w-2xl mx-auto overflow-hidden rounded-2xl border-border/50 bg-card/90 shadow-[0_0_0_1px_var(--border),0_8px_40px_-12px_oklch(0.72_0.15_220/12%)] dark:shadow-[0_0_0_1px_var(--border),0_8px_40px_-12px_black/40%]";
+
   if (loadingLink) {
     return (
-      <Card className="w-full max-w-2xl mx-auto">
+      <Card className={cardClass}>
         <CardContent className="py-12">
           <div className="flex flex-col items-center gap-4">
-            <div className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full" />
-            <p className="text-muted-foreground">Loading payment request...</p>
+            <div className="size-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            <p className="text-sm text-muted-foreground">
+              Loading payment request...
+            </p>
           </div>
         </CardContent>
       </Card>
@@ -402,12 +536,14 @@ export function PaymentReceiver({ paymentId }: PaymentReceiverProps) {
 
   if (linkError || !paymentLink) {
     return (
-      <Card className="w-full max-w-2xl mx-auto">
-        <CardHeader>
-          <CardTitle>Payment Link Not Found</CardTitle>
+      <Card className={cardClass}>
+        <CardHeader className="px-6 pt-6 pb-4">
+          <CardTitle className="text-lg font-semibold tracking-tight">
+            Payment Link Not Found
+          </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="p-4 bg-red-500/10 border border-red-500/20 rounded text-red-500">
+        <CardContent className="px-6 pb-8">
+          <div className="rounded-lg p-4 bg-red-500/10 border border-red-500/20 text-red-500 text-sm">
             {linkError || "This payment link does not exist or has expired."}
           </div>
         </CardContent>
@@ -417,12 +553,14 @@ export function PaymentReceiver({ paymentId }: PaymentReceiverProps) {
 
   if (paymentLink.status !== "active") {
     return (
-      <Card className="w-full max-w-2xl mx-auto">
-        <CardHeader>
-          <CardTitle>Payment Link Unavailable</CardTitle>
+      <Card className={cardClass}>
+        <CardHeader className="px-6 pt-6 pb-4">
+          <CardTitle className="text-lg font-semibold tracking-tight">
+            Payment Link Unavailable
+          </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded text-yellow-600">
+        <CardContent className="px-6 pb-8">
+          <div className="rounded-lg p-4 bg-yellow-500/10 border border-yellow-500/20 text-yellow-600 text-sm">
             This payment link is no longer active.
           </div>
         </CardContent>
@@ -432,23 +570,40 @@ export function PaymentReceiver({ paymentId }: PaymentReceiverProps) {
 
   if (status === "success") {
     return (
-      <Card className="w-full max-w-2xl mx-auto">
-        <CardHeader>
-          <CardTitle>Payment Sent ✅</CardTitle>
-          <CardDescription>Your payment has been sent privately.</CardDescription>
+      <Card className={cn(cardClass, "animate-success-in")}>
+        <CardHeader className="space-y-3 px-6 pt-8 pb-2 text-center">
+          <div
+            className="mx-auto flex size-14 items-center justify-center rounded-full bg-primary/10 ring-2 ring-primary/20"
+            aria-hidden
+          >
+            <CheckCircle2 className="size-8 text-primary" strokeWidth={1.75} />
+          </div>
+          <CardTitle className="text-xl font-semibold tracking-tight sm:text-2xl">
+            Payment sent
+          </CardTitle>
+          <CardDescription className="text-sm text-muted-foreground">
+            Your payment has been sent privately.
+          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4 text-center">
-          <div className="p-6 bg-green-500/10 border border-green-500/20 rounded-lg">
-            <p className="text-lg font-semibold">
+        <CardContent className="space-y-6 px-6 pb-8 pt-4">
+          <div className="rounded-lg border border-border/50 bg-muted/20 px-5 py-4 text-center">
+            <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+              Paid
+            </p>
+            <p className="mt-1 text-xl font-bold tabular-nums tracking-tight text-foreground sm:text-2xl">
               {isValidAmount && token
                 ? `${formatAmount(amountBaseUnits)} ${token.label}`
-                : amount} paid privately
+                : amount}{" "}
+              paid privately
             </p>
-            <p className="text-sm text-muted-foreground mt-2">
-              Your payment is on-chain, but your identity stays private.
+            <p className="mt-2 text-xs text-muted-foreground">
+              On-chain; your identity stays private.
             </p>
           </div>
-          <Button asChild className="w-full">
+          <Button
+            asChild
+            className="btn-neon h-14 w-full rounded-lg bg-primary text-primary-foreground text-lg font-semibold"
+          >
             <a href="/">Done</a>
           </Button>
         </CardContent>
@@ -456,196 +611,404 @@ export function PaymentReceiver({ paymentId }: PaymentReceiverProps) {
     );
   }
 
+  const stepConnect = !publicKey;
+  const stepSign = publicKey && !balancesChecked;
+  const stepPay = publicKey && balancesChecked;
+
   return (
-    <Card className="w-full max-w-2xl mx-auto">
-      <CardHeader>
-        <div className="flex items-start justify-between">
+    <Card className="w-full max-w-2xl mx-auto overflow-hidden rounded-2xl border-border/50 bg-card/90 shadow-[0_0_0_1px_var(--border),0_8px_40px_-12px_oklch(0.72_0.15_220/12%)] dark:shadow-[0_0_0_1px_var(--border),0_8px_40px_-12px_black/40%] max-h-full flex flex-col min-h-0">
+      <CardHeader className="space-y-2 px-5 pt-5 pb-3 shrink-0">
+        <div className="flex items-start justify-between gap-4">
           <div className="space-y-1">
-            <CardTitle>{paymentLink.label || "Payment Request"}</CardTitle>
-            <CardDescription>Pay privately using ghostsend</CardDescription>
+            <CardTitle className="text-lg font-semibold tracking-tight sm:text-xl text-balance">
+              {paymentLink.label || "Payment Request"}
+            </CardTitle>
+            <CardDescription className="text-sm text-muted-foreground">
+              Pay privately with ghostsend
+            </CardDescription>
           </div>
-          <Badge variant="secondary" className="ml-2">
-            {tokenLabel}
-          </Badge>
+          {token && (
+            <div className="flex items-center gap-1.5 shrink-0 rounded-full border border-border/50 bg-muted/50 px-2.5 py-1">
+              {token.icon ? (
+                <span
+                  className="size-5 rounded-full bg-cover bg-center bg-no-repeat shrink-0"
+                  style={{ backgroundImage: `url(${token.icon})` }}
+                  role="img"
+                  aria-hidden
+                />
+              ) : null}
+              <span className="text-xs font-medium text-foreground">
+                {token.label}
+              </span>
+            </div>
+          )}
+        </div>
+        <div className="flex items-center gap-2 pt-2" aria-label="Progress">
+          <div
+            className={cn(
+              "flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-colors",
+              stepConnect
+                ? "bg-primary/15 text-primary"
+                : "bg-muted text-muted-foreground",
+            )}
+          >
+            <Wallet className="size-3.5" aria-hidden />
+            <span>1. Connect</span>
+          </div>
+          <div className="h-px w-3 bg-border" aria-hidden />
+          <div
+            className={cn(
+              "flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-colors",
+              stepSign
+                ? "bg-primary/15 text-primary"
+                : stepPay
+                  ? "bg-muted text-muted-foreground"
+                  : "bg-muted/60 text-muted-foreground",
+            )}
+          >
+            <FileSignature className="size-3.5" aria-hidden />
+            <span>2. Sign</span>
+          </div>
+          <div className="h-px w-3 bg-border" aria-hidden />
+          <div
+            className={cn(
+              "flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-colors",
+              stepPay
+                ? "bg-primary/15 text-primary"
+                : "bg-muted/60 text-muted-foreground",
+            )}
+          >
+            <Send className="size-3.5" aria-hidden />
+            <span>3. Pay</span>
+          </div>
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-6">
+      <CardContent className="space-y-4 px-5 pb-6 pt-0 min-h-0 flex flex-col">
         {paymentLink.message && (
-          <div className="p-4 bg-muted rounded-lg">
-            <p className="text-sm italic text-muted-foreground">
+          <div className="rounded-lg border border-border/50 bg-muted/20 px-3 py-2 shrink-0">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Message
+            </p>
+            <p className="mt-1 text-sm text-foreground text-pretty line-clamp-2">
               "{paymentLink.message}"
             </p>
           </div>
         )}
 
-        <div className="space-y-4">
-          <div>
-            <Label>Amount</Label>
-            <div className="relative mt-2">
-              <Input
-                type={paymentLink.amountType === "fixed" ? "text" : "number"}
-                step={
-                  paymentLink.amountType === "fixed"
-                    ? undefined
-                    : token
-                      ? getTokenStep(token)
-                      : "0.001"
-                }
-                value={amount}
-                readOnly={paymentLink.amountType === "fixed"}
-                onChange={(e) => setAmount(e.target.value)}
-                className="text-xl font-bold pr-20"
-              />
-              <Badge className="absolute right-2 top-1/2 -translate-y-1/2">
+        <div className="space-y-1.5 shrink-0">
+          <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+            Amount
+          </Label>
+          <div className="relative">
+            <Input
+              type={paymentLink.amountType === "fixed" ? "text" : "number"}
+              step={
+                paymentLink.amountType === "fixed"
+                  ? undefined
+                  : token
+                    ? getTokenStep(token)
+                    : "0.001"
+              }
+              value={amount}
+              readOnly={paymentLink.amountType === "fixed"}
+              onChange={(e) => setAmount(e.target.value)}
+              className="h-11 rounded-lg border-input bg-muted/30 font-semibold pr-20 tabular-nums"
+            />
+            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1.5 pointer-events-none">
+              {token?.icon ? (
+                <span
+                  className="size-5 rounded-full bg-cover bg-center bg-no-repeat shrink-0"
+                  style={{ backgroundImage: `url(${token.icon})` }}
+                  role="img"
+                  aria-hidden
+                />
+              ) : null}
+              <span className="text-xs font-semibold tabular-nums">
                 {tokenLabel}
-              </Badge>
+              </span>
             </div>
           </div>
         </div>
 
         <Separator />
 
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-medium">Wallet</p>
-            <WalletConnectButton size="sm" />
-          </div>
-          {publicKey && (
-            <div className="relative h-28 overflow-hidden rounded-lg border border-border/60 bg-muted/30">
-              <div
-                className={cn(
-                  "absolute inset-0 px-4 py-3 transition-all duration-500",
-                  balancesChecked
-                    ? "pointer-events-none opacity-0 translate-y-1"
-                    : "opacity-100 translate-y-0"
+        <div className="space-y-3">
+          <div className="flex flex-row flex-wrap items-start justify-between gap-3 rounded-xl border border-border/50 bg-muted/10 px-4 py-3">
+            <div className="flex flex-col gap-2 min-w-0 flex-1">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Wallet
+              </p>
+              {stepPay &&
+                publicBalanceBaseUnits !== null &&
+                privateBalanceBaseUnits !== null &&
+                token && (
+                  <div className="flex flex-wrap gap-3">
+                    <div className="flex items-center gap-2 rounded-lg border border-border/40 bg-background/50 px-3 py-2 min-w-0">
+                      {token.icon && (
+                        <span
+                          className="size-4 rounded-full bg-cover bg-center bg-no-repeat shrink-0"
+                          style={{ backgroundImage: `url(${token.icon})` }}
+                          role="img"
+                          aria-hidden
+                        />
+                      )}
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                          Public
+                        </p>
+                        <p className="text-xs font-semibold tabular-nums text-foreground">
+                          {formatAmount(publicBalanceBaseUnits)} {token.label}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground/80">
+                          On-chain, visible
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 min-w-0">
+                      {token.icon && (
+                        <span
+                          className="size-4 rounded-full bg-cover bg-center bg-no-repeat shrink-0"
+                          style={{ backgroundImage: `url(${token.icon})` }}
+                          role="img"
+                          aria-hidden
+                        />
+                      )}
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-medium text-primary/90 uppercase tracking-wider">
+                          Private
+                        </p>
+                        <p className="text-xs font-semibold tabular-nums text-foreground">
+                          {formatAmount(privateBalanceBaseUnits)} {token.label}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground">
+                          Shielded, private
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 )}
-              >
-                <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                  <span className="inline-flex h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.7)]" />
-                  <span className="uppercase tracking-[0.2em]">Ghost feed</span>
-                  <span className="ml-auto text-[9px] uppercase tracking-[0.24em]">
-                    {isBusy ? "live" : "idle"}
-                  </span>
-                </div>
-                <div className="mt-2 min-h-[48px] text-sm">
-                  {displayLogs.length > 1 && (
-                    <div className="text-muted-foreground">
-                      {displayLogs[displayLogs.length - 2]}
-                    </div>
-                  )}
-                  {displayLogs.length > 0 ? (
-                    <div className="text-foreground">
-                      <Typewriter
-                        text={displayLogs[displayLogs.length - 1]}
-                        speedMs={90}
-                      />
-                    </div>
+            </div>
+            <div className="shrink-0 ml-auto">
+              <WalletConnectButton size="sm" />
+            </div>
+          </div>
+
+          {stepConnect && (
+            <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border bg-muted/30 py-6 px-4 text-center">
+              <div className="rounded-full bg-primary/10 p-3" aria-hidden>
+                <Wallet className="size-6 text-primary" />
+              </div>
+              <p className="text-xs text-muted-foreground text-pretty max-w-xs">
+                Connect wallet to see balances and pay.
+              </p>
+            </div>
+          )}
+
+          {stepSign && (
+            <div className="rounded-xl border border-primary/25 bg-primary/5 p-4 space-y-2">
+              <div className="flex items-center gap-3">
+                <div
+                  className="rounded-full bg-primary/15 p-2 shrink-0"
+                  aria-hidden
+                >
+                  {isBusy ? (
+                    <Loader2
+                      className="size-5 text-primary animate-spin"
+                      aria-hidden
+                    />
                   ) : (
-                    <div className="text-muted-foreground">
-                      Waiting for your next action...
-                    </div>
+                    <FileSignature
+                      className="size-5 text-primary"
+                      aria-hidden
+                    />
                   )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-foreground">
+                    {isBusy
+                      ? "Check your wallet"
+                      : "Sign to reveal private balance"}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Sign in wallet — no funds sent, free.
+                  </p>
                 </div>
               </div>
-
-              <div
-                className={cn(
-                  "absolute inset-0 px-4 py-3 transition-all duration-500",
-                  balancesChecked
-                    ? "opacity-100 translate-y-0"
-                    : "pointer-events-none opacity-0 translate-y-1"
-                )}
-              >
-                <div className="grid h-full grid-cols-2 items-center gap-4">
-                  <div>
-                    <p className="text-xs text-muted-foreground">Public Balance</p>
-                    <p className="text-lg font-semibold">
-                      {publicBalanceBaseUnits !== null && token
-                        ? `${formatAmount(publicBalanceBaseUnits)} ${token.label}`
-                        : "---"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Private Balance</p>
-                    <p className="text-lg font-semibold">
-                      {privateBalanceBaseUnits !== null && token
-                        ? `${formatAmount(privateBalanceBaseUnits)} ${token.label}`
-                        : "---"}
-                    </p>
-                  </div>
-                </div>
+              {isBusy && showActivityPanel && (
+                <p className="text-xs text-muted-foreground/90 pl-11">
+                  See activity below for status.
+                </p>
+              )}
+              {isBusy && !showActivityPanel && (
+                <p className="text-xs text-primary pl-11">
+                  <Typewriter
+                    text={
+                      displayLogs[displayLogs.length - 1] ??
+                      "Requesting signature…"
+                    }
+                    speedMs={90}
+                  />
+                </p>
+              )}
+              <div className="flex items-center gap-2 rounded-lg bg-background/50 px-3 py-2">
+                <ShieldCheck
+                  className="size-4 text-primary shrink-0"
+                  aria-hidden
+                />
+                <span className="text-xs text-muted-foreground">
+                  Signing does not send any transaction.
+                </span>
               </div>
             </div>
           )}
         </div>
 
+        {showActivityPanel && activityLogs.length > 0 && (
+          <div
+            className={cn(
+              "rounded-xl border border-primary/20 bg-black/40 shadow-[inset_0_0_20px_oklch(0.72_0.15_220/6%)] overflow-hidden h-20 flex flex-col transition-[opacity,transform] duration-200 ease-out",
+              activityExiting && "opacity-0 scale-[0.98] pointer-events-none",
+            )}
+          >
+            <div className="flex items-center gap-2 border-b border-border/50 bg-muted/20 px-3 py-1.5 shrink-0">
+              <Terminal className="size-3.5 text-primary" aria-hidden />
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Activity
+              </span>
+              {isBusy && (
+                <span
+                  className="ml-auto size-1.5 rounded-full bg-primary animate-pulse"
+                  aria-hidden
+                />
+              )}
+            </div>
+            <div
+              ref={activityLogsRef}
+              className="h-full min-h-0 overflow-y-auto overflow-x-hidden px-3 py-1.5 font-mono text-xs tabular-nums"
+              role="log"
+              aria-live="polite"
+              aria-label="SDK activity log"
+            >
+              <div className="space-y-0.5">
+                {activityLogs.map((line, i) => (
+                  <div
+                    key={i}
+                    className={cn(
+                      "animate-log-line-in text-muted-foreground truncate",
+                      line.startsWith("Error") && "text-red-400",
+                      line.startsWith("Warn") && "text-amber-400",
+                      line.startsWith("Info") && "text-primary/90",
+                    )}
+                  >
+                    <span className="select-none text-muted-foreground/60">
+                      {String(i + 1).padStart(2)}{" "}
+                    </span>
+                    {line}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
         {publicKey && balancesChecked && (
           <>
-            <Separator />
-            <div className="space-y-3">
-              <p className="text-sm font-medium">Transaction summary</p>
-              <div className="space-y-3 rounded-lg border p-4">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Requirement</span>
-                  <span className="font-semibold">
-                    {token ? `${formatAmount(amountBaseUnits)} ${token.label}` : "---"}
-                  </span>
-                </div>
-                <div className="h-px bg-border/60" />
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Deposit needed</span>
-                  <span className={cn("font-semibold", needsDeposit && "text-amber-500")}>
-                    {token && shortfallBaseUnits !== null
-                      ? `${formatAmount(shortfallBaseUnits)} ${token.label}`
+            <div className="rounded-xl border border-border/50 bg-muted/10 px-4 py-3 space-y-2.5 shrink-0">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Payment summary
+              </p>
+              <div className="grid grid-cols-1 gap-2 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">To recipient</span>
+                  <span className="font-semibold tabular-nums">
+                    {token
+                      ? `${formatAmount(amountBaseUnits)} ${token.label}`
                       : "---"}
                   </span>
                 </div>
+                {payFeeBreakdown && payFeeBreakdown.feeBaseUnits > 0 && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Relayer fee</span>
+                    <span className="tabular-nums">
+                      {token
+                        ? `${formatAmount(payFeeBreakdown.feeBaseUnits)} ${token.label}`
+                        : "---"}
+                    </span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between border-t border-border/50 pt-2">
+                  <span className="text-muted-foreground font-medium">
+                    Total from private
+                  </span>
+                  <span className="font-semibold tabular-nums">
+                    {token
+                      ? `${formatAmount(requiredPrivateBaseUnits)} ${token.label}`
+                      : "---"}
+                  </span>
+                </div>
+                {needsDeposit && shortfallBaseUnits !== null && (
+                  <div className="flex items-center justify-between pt-1">
+                    <span className="text-muted-foreground">
+                      Deposit (no fee)
+                    </span>
+                    <span
+                      className={cn(
+                        "font-semibold tabular-nums",
+                        "text-amber-500",
+                      )}
+                    >
+                      {token
+                        ? `${formatAmount(shortfallBaseUnits)} ${token.label}`
+                        : "—"}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 
-            <Separator />
-
-            <div className="space-y-3">
+            <div className="space-y-1 shrink-0">
               <Button
                 onClick={handlePrimaryAction}
                 disabled={
-                  isBusy ||
+                  (isBusy && !isError) ||
                   !isValidAmount ||
-                  (needsDeposit ? shortfallBaseUnits === null : !hasSufficientBalance)
+                  (needsDeposit
+                    ? shortfallBaseUnits === null
+                    : !hasSufficientBalance)
                 }
-                className="w-full"
+                variant={isError ? "destructive" : "default"}
+                className={cn(
+                  "h-12 w-full gap-2 rounded-lg text-base font-semibold",
+                  !isError && "btn-neon bg-primary text-primary-foreground",
+                )}
               >
-                {needsDeposit
-                  ? `Deposit ${
-                      token && shortfallBaseUnits !== null
-                        ? `${formatAmount(shortfallBaseUnits)} ${token.label}`
-                        : "---"
-                    }`
-                  : `Pay ${
-                      token
-                        ? `${formatAmount(amountBaseUnits)} ${token.label}`
-                        : "---"
-                    }`}
+                {isBusy && !isError ? (
+                  <Loader2
+                    className="size-5 shrink-0 animate-spin"
+                    aria-hidden
+                  />
+                ) : token?.icon && !isError ? (
+                  <span
+                    className="size-5 rounded-full bg-cover bg-center bg-no-repeat shrink-0"
+                    style={{ backgroundImage: `url(${token.icon})` }}
+                    role="img"
+                    aria-hidden
+                  />
+                ) : null}
+                {buttonLabel}
               </Button>
-              {needsDeposit ? (
-                <p className="text-xs text-muted-foreground">
-                  Deposit first to cover the payment amount, then click again to pay.
+              {needsDeposit && (
+                <p className="text-xs text-muted-foreground text-pretty text-center">
+                  Deposit, then click Pay.
                 </p>
-              ) : (
-                !hasSufficientBalance && (
-                  <p className="text-xs text-muted-foreground">
-                    Deposit first to cover the payment amount.
-                  </p>
-                )
               )}
             </div>
           </>
         )}
 
-
         {error && (
-          <div className="p-4 bg-red-500/10 border border-red-500/20 rounded text-red-500 text-sm">
+          <div className="rounded-lg p-3 bg-red-500/10 border border-red-500/20 text-red-500 text-sm">
             {error}
           </div>
         )}

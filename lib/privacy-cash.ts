@@ -8,7 +8,6 @@ export type Token = (typeof tokens)[number];
 // Re-export token list constant from SDK
 export { tokens };
 
-
 // Type for the wallet adapter interface
 export interface WalletAdapter {
   publicKey: PublicKey;

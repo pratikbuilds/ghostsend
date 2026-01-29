@@ -333,3 +333,45 @@
 .animate-success-in {
   animation: success-card-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
+
+/* Neon CTA for pay/deposit */
+.btn-neon {
+  box-shadow:
+    0 0 0 1px oklch(0.72 0.15 220 / 25%),
+    0 4px 14px oklch(0.72 0.15 220 / 25%),
+    0 0 28px oklch(0.72 0.15 220 / 15%);
+  transition: transform 0.15s ease-out, box-shadow 0.2s ease-out, opacity 0.2s;
+}
+.btn-neon:hover:not(:disabled) {
+  box-shadow:
+    0 0 0 1px oklch(0.72 0.15 220 / 35%),
+    0 6px 20px oklch(0.72 0.15 220 / 30%),
+    0 0 40px oklch(0.72 0.15 220 / 20%);
+  transform: translateY(-1px);
+}
+.btn-neon:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow:
+    0 0 0 1px oklch(0.72 0.15 220 / 25%),
+    0 2px 8px oklch(0.72 0.15 220 / 20%);
+}
+
+/* Terminal / activity log panel */
+@keyframes log-line-in {
+  from {
+    opacity: 0;
+    transform: translateX(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+.animate-log-line-in {
+  animation: log-line-in 0.2s ease-out forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-log-line-in {
+    animation: none;
+  }
+}
