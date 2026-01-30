@@ -1,8 +1,9 @@
 "use client";
 
 import { use, useState } from "react";
-import { PaymentReceiver } from "@/components/payment-receiver";
 import Image from "next/image";
+import Link from "next/link";
+import { PaymentReceiver } from "@/components/payment-receiver";
 
 export default function PaymentPage({
   params,
@@ -31,7 +32,7 @@ export default function PaymentPage({
           opacity: 0.6,
         }}
       />
-      <div className="absolute top-6 left-6 z-30">
+      <Link href="/" className="absolute top-6 left-6 z-30 block">
         <Image
           src="/new_logo.png"
           alt="ghostsend logo"
@@ -41,7 +42,7 @@ export default function PaymentPage({
           priority
         />
         <h1 className="sr-only">ghostsend</h1>
-      </div>
+      </Link>
       <main className="relative z-20 flex-1 min-h-0 flex items-center justify-center px-4 py-6 overflow-hidden">
         <div className="w-full max-w-2xl h-full max-h-[calc(100dvh-6rem)] flex flex-col items-center justify-center gap-3">
           {!hideIntro && (

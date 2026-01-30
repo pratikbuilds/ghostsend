@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { PaymentLinksManager } from "@/components/payment-links-manager";
 
 export default function Page() {
@@ -26,7 +27,7 @@ export default function Page() {
       />
       
       {/* Logo in top-left corner */}
-      <div className="absolute top-6 left-6 z-30">
+      <Link href="/" className="absolute top-6 left-6 z-30 block">
         <Image
           src="/new_logo.png"
           alt="ghostsend logo"
@@ -36,7 +37,7 @@ export default function Page() {
           priority
         />
         <h1 className="sr-only">ghostsend</h1>
-      </div>
+      </Link>
 
       {/* Centered main content — fixed height so tab bar doesn't jump when switching tabs */}
       <main className="relative z-20 min-h-screen flex items-center justify-center px-4 py-20">

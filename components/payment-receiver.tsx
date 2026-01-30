@@ -15,8 +15,6 @@ import { Button } from "@/components/ui/button";
 import { WalletConnectButton } from "@/components/wallet-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import {
   depositSOL,
   depositSPLToken,
@@ -49,6 +47,7 @@ import {
   FileSignature,
   Send,
   Loader2,
+  Shield,
   ShieldCheck,
   Terminal,
   CheckCircle2,
@@ -616,8 +615,8 @@ export function PaymentReceiver({
   const stepPay = publicKey && balancesChecked;
 
   return (
-    <Card className="w-full max-w-2xl mx-auto overflow-hidden rounded-2xl border-border/50 bg-card/90 shadow-[0_0_0_1px_var(--border),0_8px_40px_-12px_oklch(0.72_0.15_220/12%)] dark:shadow-[0_0_0_1px_var(--border),0_8px_40px_-12px_black/40%] max-h-full flex flex-col min-h-0">
-      <CardHeader className="space-y-2 px-5 pt-5 pb-3 shrink-0">
+    <Card className={cn(cardClass, "flex flex-col")}>
+      <CardHeader className="space-y-1.5 px-5 pt-4 pb-2 shrink-0">
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-1">
             <CardTitle className="text-lg font-semibold tracking-tight sm:text-xl text-balance">
@@ -626,9 +625,20 @@ export function PaymentReceiver({
             <CardDescription className="text-sm text-muted-foreground">
               Pay privately with ghostsend
             </CardDescription>
+            {paymentLink.message && (
+              <p className="pt-1 text-xs text-muted-foreground/90 line-clamp-1">
+                <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                  Message
+                </span>
+                <span className="mx-1 text-muted-foreground/50">•</span>
+                <span className="text-foreground/90">
+                  {paymentLink.message}
+                </span>
+              </p>
+            )}
           </div>
           {token && (
-            <div className="flex items-center gap-1.5 shrink-0 rounded-full border border-border/50 bg-muted/50 px-2.5 py-1">
+            <div className="flex items-center gap-1.5 shrink-0 rounded-full border border-border/50 bg-muted/50 px-2.5 py-0.5">
               {token.icon ? (
                 <span
                   className="size-5 rounded-full bg-cover bg-center bg-no-repeat shrink-0"
@@ -643,10 +653,10 @@ export function PaymentReceiver({
             </div>
           )}
         </div>
-        <div className="flex items-center gap-2 pt-2" aria-label="Progress">
+        <div className="flex items-center gap-2 pt-1.5" aria-label="Progress">
           <div
             className={cn(
-              "flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-colors",
+              "flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors",
               stepConnect
                 ? "bg-primary/15 text-primary"
                 : "bg-muted text-muted-foreground",
@@ -658,7 +668,7 @@ export function PaymentReceiver({
           <div className="h-px w-3 bg-border" aria-hidden />
           <div
             className={cn(
-              "flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-colors",
+              "flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors",
               stepSign
                 ? "bg-primary/15 text-primary"
                 : stepPay
@@ -672,7 +682,7 @@ export function PaymentReceiver({
           <div className="h-px w-3 bg-border" aria-hidden />
           <div
             className={cn(
-              "flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-colors",
+              "flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors",
               stepPay
                 ? "bg-primary/15 text-primary"
                 : "bg-muted/60 text-muted-foreground",
@@ -684,20 +694,9 @@ export function PaymentReceiver({
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-4 px-5 pb-6 pt-0 min-h-0 flex flex-col">
-        {paymentLink.message && (
-          <div className="rounded-lg border border-border/50 bg-muted/20 px-3 py-2 shrink-0">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              Message
-            </p>
-            <p className="mt-1 text-sm text-foreground text-pretty line-clamp-2">
-              "{paymentLink.message}"
-            </p>
-          </div>
-        )}
-
+      <CardContent className="space-y-3 px-5 pb-5 pt-0 flex flex-col">
         <div className="space-y-1.5 shrink-0">
-          <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+          <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
             Amount
           </Label>
           <div className="relative">
@@ -713,7 +712,7 @@ export function PaymentReceiver({
               value={amount}
               readOnly={paymentLink.amountType === "fixed"}
               onChange={(e) => setAmount(e.target.value)}
-              className="h-11 rounded-lg border-input bg-muted/30 font-semibold pr-20 tabular-nums"
+              className="h-10 rounded-lg border-input bg-muted/30 font-semibold pr-20 tabular-nums"
             />
             <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1.5 pointer-events-none">
               {token?.icon ? (
@@ -731,71 +730,64 @@ export function PaymentReceiver({
           </div>
         </div>
 
-        <Separator />
-
-        <div className="space-y-3">
-          <div className="flex flex-row flex-wrap items-start justify-between gap-3 rounded-xl border border-border/50 bg-muted/10 px-4 py-3">
-            <div className="flex flex-col gap-2 min-w-0 flex-1">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+        <div className="space-y-2.5">
+          <div className="flex flex-col gap-2 rounded-xl border border-border/50 bg-muted/10 px-3.5 py-2.5">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
                 Wallet
               </p>
-              {stepPay &&
-                publicBalanceBaseUnits !== null &&
-                privateBalanceBaseUnits !== null &&
-                token && (
-                  <div className="flex flex-wrap gap-3">
-                    <div className="flex items-center gap-2 rounded-lg border border-border/40 bg-background/50 px-3 py-2 min-w-0">
+              <div className="shrink-0">
+                <WalletConnectButton size="sm" />
+              </div>
+            </div>
+            {stepPay &&
+              publicBalanceBaseUnits !== null &&
+              privateBalanceBaseUnits !== null &&
+              token && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="flex items-center justify-between gap-2 rounded-lg border border-border/40 bg-background/40 px-2.5 py-1.5">
+                    <div className="flex items-center gap-2 min-w-0">
                       {token.icon && (
                         <span
-                          className="size-4 rounded-full bg-cover bg-center bg-no-repeat shrink-0"
+                          className="size-3.5 rounded-full bg-cover bg-center bg-no-repeat shrink-0"
                           style={{ backgroundImage: `url(${token.icon})` }}
                           role="img"
                           aria-hidden
                         />
                       )}
-                      <div className="min-w-0">
-                        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-                          Public
-                        </p>
-                        <p className="text-xs font-semibold tabular-nums text-foreground">
-                          {formatAmount(publicBalanceBaseUnits)} {token.label}
-                        </p>
-                        <p className="text-[10px] text-muted-foreground/80">
-                          On-chain, visible
-                        </p>
-                      </div>
+                      <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                        Public
+                      </p>
                     </div>
-                    <div className="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 min-w-0">
-                      {token.icon && (
-                        <span
-                          className="size-4 rounded-full bg-cover bg-center bg-no-repeat shrink-0"
-                          style={{ backgroundImage: `url(${token.icon})` }}
-                          role="img"
-                          aria-hidden
-                        />
-                      )}
-                      <div className="min-w-0">
-                        <p className="text-[10px] font-medium text-primary/90 uppercase tracking-wider">
-                          Private
-                        </p>
-                        <p className="text-xs font-semibold tabular-nums text-foreground">
-                          {formatAmount(privateBalanceBaseUnits)} {token.label}
-                        </p>
-                        <p className="text-[10px] text-muted-foreground">
-                          Shielded, private
-                        </p>
-                      </div>
-                    </div>
+                    <span className="text-xs font-semibold tabular-nums text-foreground">
+                      {formatAmount(publicBalanceBaseUnits)} {token.label}
+                    </span>
                   </div>
-                )}
-            </div>
-            <div className="shrink-0 ml-auto">
-              <WalletConnectButton size="sm" />
-            </div>
+                  <div className="relative flex items-center justify-between gap-2 rounded-lg border border-cyan-400/60 bg-[radial-gradient(120%_120%_at_0%_0%,rgba(56,189,248,0.28),rgba(14,116,144,0.22),rgba(3,105,161,0.08))] px-2.5 py-1.5 shadow-[0_0_0_1px_rgba(56,189,248,0.6),0_0_18px_rgba(56,189,248,0.35)]">
+                    <div className="flex items-center gap-2 min-w-0">
+                      {token.icon && (
+                        <span
+                          className="size-3.5 rounded-full bg-cover bg-center bg-no-repeat shrink-0"
+                          style={{ backgroundImage: `url(${token.icon})` }}
+                          role="img"
+                          aria-hidden
+                        />
+                      )}
+                      <p className="text-[10px] font-semibold text-cyan-200 uppercase tracking-wider">
+                        Private
+                      </p>
+                    </div>
+                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold tabular-nums text-cyan-100">
+                      <Shield className="size-3 text-cyan-200" aria-hidden />
+                      {formatAmount(privateBalanceBaseUnits)} {token.label}
+                    </span>
+                  </div>
+                </div>
+              )}
           </div>
 
           {stepConnect && (
-            <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border bg-muted/30 py-6 px-4 text-center">
+            <div className="flex flex-col items-center justify-center gap-2.5 rounded-xl border border-dashed border-border bg-muted/30 py-4 px-4 text-center">
               <div className="rounded-full bg-primary/10 p-3" aria-hidden>
                 <Wallet className="size-6 text-primary" />
               </div>
@@ -806,7 +798,7 @@ export function PaymentReceiver({
           )}
 
           {stepSign && (
-            <div className="rounded-xl border border-primary/25 bg-primary/5 p-4 space-y-2">
+            <div className="rounded-xl border border-primary/25 bg-primary/5 p-3 space-y-2">
               <div className="flex items-center gap-3">
                 <div
                   className="rounded-full bg-primary/15 p-2 shrink-0"
@@ -864,14 +856,14 @@ export function PaymentReceiver({
           )}
         </div>
 
-        {showActivityPanel && activityLogs.length > 0 && (
+        {isBusy && showActivityPanel && activityLogs.length > 0 && (
           <div
             className={cn(
-              "rounded-xl border border-primary/20 bg-black/40 shadow-[inset_0_0_20px_oklch(0.72_0.15_220/6%)] overflow-hidden h-20 flex flex-col transition-[opacity,transform] duration-200 ease-out",
+              "rounded-xl border border-primary/20 bg-black/40 shadow-[inset_0_0_20px_oklch(0.72_0.15_220/6%)] overflow-hidden h-16 flex flex-col transition-[opacity,transform] duration-200 ease-out",
               activityExiting && "opacity-0 scale-[0.98] pointer-events-none",
             )}
           >
-            <div className="flex items-center gap-2 border-b border-border/50 bg-muted/20 px-3 py-1.5 shrink-0">
+            <div className="flex items-center gap-2 border-b border-border/50 bg-muted/20 px-3 py-1 shrink-0">
               <Terminal className="size-3.5 text-primary" aria-hidden />
               <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 Activity
@@ -885,7 +877,7 @@ export function PaymentReceiver({
             </div>
             <div
               ref={activityLogsRef}
-              className="h-full min-h-0 overflow-y-auto overflow-x-hidden px-3 py-1.5 font-mono text-xs tabular-nums"
+              className="h-full min-h-0 overflow-y-auto overflow-x-hidden px-3 py-1 font-mono text-[11px] tabular-nums"
               role="log"
               aria-live="polite"
               aria-label="SDK activity log"
@@ -914,11 +906,11 @@ export function PaymentReceiver({
 
         {publicKey && balancesChecked && (
           <>
-            <div className="rounded-xl border border-border/50 bg-muted/10 px-4 py-3 space-y-2.5 shrink-0">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+            <div className="rounded-xl border border-border/50 bg-muted/10 px-3.5 py-2.5 space-y-2 shrink-0">
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
                 Payment summary
               </p>
-              <div className="grid grid-cols-1 gap-2 text-sm">
+              <div className="grid grid-cols-1 gap-1.5 text-xs">
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">To recipient</span>
                   <span className="font-semibold tabular-nums">
@@ -979,7 +971,7 @@ export function PaymentReceiver({
                 }
                 variant={isError ? "destructive" : "default"}
                 className={cn(
-                  "h-12 w-full gap-2 rounded-lg text-base font-semibold",
+                  "h-11 w-full gap-2 rounded-lg text-sm font-semibold",
                   !isError && "btn-neon bg-primary text-primary-foreground",
                 )}
               >
