@@ -1,6 +1,14 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "wsrv.nl",
+      },
+    ],
+  },
   // Use Turbopack with resolve aliases for browser polyfills
   // Note: These aliases apply to both client and server code in Turbopack
   // For API routes, we rely on Node.js built-ins being available

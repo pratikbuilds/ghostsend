@@ -1,7 +1,7 @@
 "use client";
 
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -62,11 +62,13 @@ export function AmountTokenInput({
             <SelectValue>
               {selectedToken ? (
                 <span className="flex items-center gap-2.5">
-                  <img
+                  <Image
                     src={selectedToken.icon}
                     alt={`${selectedToken.label} icon`}
                     className="h-6 w-6 rounded-full shrink-0"
                     loading="lazy"
+                    width={24}
+                    height={24}
                   />
                   <span className="uppercase  text-sm font-semibold">{selectedToken.label}</span>
                 </span>
@@ -77,11 +79,13 @@ export function AmountTokenInput({
             {tokenRegistry.map((option) => (
               <SelectItem key={option.mint} value={option.mint} textValue={option.label}>
                 <span className="flex items-center gap-2.5">
-                  <img
+                  <Image
                     src={option.icon}
                     alt={`${option.label} icon`}
                     className="h-5 w-5 rounded-full shrink-0"
                     loading="lazy"
+                    width={20}
+                    height={20}
                   />
                   <span className="flex items-center gap-2">
                     <span className="uppercase ">{option.label}</span>

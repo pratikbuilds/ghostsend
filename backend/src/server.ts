@@ -3,46 +3,161 @@ import Fastify from "fastify";
 import cors from "@fastify/cors";
 import fs from "fs";
 import path from "path";
-import { Connection, PublicKey } from "@solana/web3.js";
+import { Connection, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
+import { getConfig, tokens as sdkTokens } from "privacycash/utils";
 import { paymentLinksRoutes } from "./routes/payment-links";
+import { PaymentLinksStore } from "./services/payment-links/store";
+import type { SDKToken } from "./types/sdk";
+
+// SDK reads RELAYER_API_URL from NEXT_PUBLIC_RELAYER_API_URL only
+if (!process.env.NEXT_PUBLIC_RELAYER_API_URL) {
+  process.env.NEXT_PUBLIC_RELAYER_API_URL =
+    process.env.RELAYER_API_URL || "https://api3.privacycash.org";
+}
 
 type WithdrawRequest = {
+  paymentId: string;
   amountLamports: number;
-  recipient: string;
+  recipientAmountLamports?: number;
   publicKey: string;
   signature: string;
 };
 
 type WithdrawResult = {
   isPartial: boolean;
-  tx: string;
-  recipient: string;
   amount_in_lamports: number;
   fee_in_lamports: number;
 };
 
+type WithdrawSdkResult = WithdrawResult & {
+  tx: string;
+  recipient?: string;
+};
+
 type WithdrawSplRequest = {
+  paymentId: string;
   amountBaseUnits: number;
-  mintAddress: string;
-  recipient: string;
+  recipientAmountBaseUnits?: number;
   publicKey: string;
   signature: string;
 };
 
 type WithdrawSplResult = {
   isPartial: boolean;
-  tx: string;
-  recipient: string;
   base_units: number;
   fee_base_units: number;
 };
 
+type WithdrawSplSdkResult = WithdrawSplResult & {
+  tx: string;
+  recipient?: string;
+};
+
 const RPC_URL = process.env.SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com";
+const SOL_MINT = (() => {
+  const token = sdkTokens.find((sdkToken: SDKToken) => sdkToken.name === "sol");
+  if (!token) return null;
+  return typeof token.pubkey === "string" ? token.pubkey : token.pubkey.toBase58();
+})();
+type RelayerConfig = {
+  withdraw_fee_rate: number;
+  withdraw_rent_fee: number;
+  rent_fees: Record<string, number>;
+};
+
+/** Fallback when relayer config API is unavailable; matches SDK default expectations. */
+const FALLBACK_RELAYER_CONFIG: RelayerConfig = {
+  withdraw_fee_rate: 0.0025,
+  withdraw_rent_fee: 0.001,
+  rent_fees: {},
+};
+
+let relayerConfigCache: RelayerConfig | null = null;
+
+/**
+ * Load relayer fee config from the same API the Privacy Cash SDK uses (getConfig).
+ * Ensures fee calculations match the SDK. Falls back to FALLBACK_RELAYER_CONFIG on error.
+ */
+async function getRelayerConfig(): Promise<RelayerConfig> {
+  if (relayerConfigCache) return relayerConfigCache;
+  try {
+    const [withdraw_fee_rate, withdraw_rent_fee, rent_fees] = await Promise.all([
+      getConfig("withdraw_fee_rate"),
+      getConfig("withdraw_rent_fee"),
+      getConfig("rent_fees"),
+    ]);
+    const config: RelayerConfig = {
+      withdraw_fee_rate: Number(withdraw_fee_rate),
+      withdraw_rent_fee: Number(withdraw_rent_fee),
+      rent_fees:
+        typeof rent_fees === "object" && rent_fees !== null
+          ? (rent_fees as Record<string, number>)
+          : {},
+    };
+    relayerConfigCache = config;
+    return config;
+  } catch {
+    relayerConfigCache = FALLBACK_RELAYER_CONFIG;
+    return relayerConfigCache;
+  }
+}
+
+function computeRecipientLamportsFromTotal(totalLamports: number, config: RelayerConfig): number {
+  const feeLamports = Math.floor(
+    totalLamports * config.withdraw_fee_rate + LAMPORTS_PER_SOL * config.withdraw_rent_fee
+  );
+  return totalLamports - feeLamports;
+}
+
+function computeTotalLamportsForRecipient(
+  recipientLamports: number,
+  config: RelayerConfig
+): number {
+  const rentLamports = Math.floor(LAMPORTS_PER_SOL * config.withdraw_rent_fee);
+  const rate = config.withdraw_fee_rate;
+  if (rate >= 1) {
+    return recipientLamports + rentLamports;
+  }
+  return Math.floor((recipientLamports + rentLamports) / (1 - rate));
+}
+
+function computeRecipientBaseUnitsFromTotal(
+  totalBaseUnits: number,
+  unitsPerToken: number,
+  tokenName: string,
+  config: RelayerConfig
+): number {
+  const tokenRentFee = config.rent_fees[tokenName] ?? 0.001;
+  const feeBaseUnits = Math.floor(
+    totalBaseUnits * config.withdraw_fee_rate + unitsPerToken * tokenRentFee
+  );
+  return totalBaseUnits - feeBaseUnits;
+}
+
+function computeTotalBaseUnitsForRecipient(
+  recipientBaseUnits: number,
+  unitsPerToken: number,
+  tokenName: string,
+  config: RelayerConfig
+): number {
+  const tokenRentFee = config.rent_fees[tokenName] ?? 0.001;
+  const rentBaseUnits = Math.floor(unitsPerToken * tokenRentFee);
+  const rate = config.withdraw_fee_rate;
+  if (rate >= 1) {
+    return recipientBaseUnits + rentBaseUnits;
+  }
+  return Math.floor((recipientBaseUnits + rentBaseUnits) / (1 - rate));
+}
+
+const tokenByMint = new Map<string, SDKToken>(
+  sdkTokens.map((sdkToken: SDKToken) => [
+    typeof sdkToken.pubkey === "string" ? sdkToken.pubkey : sdkToken.pubkey.toBase58(),
+    sdkToken,
+  ])
+);
 
 // Find monorepo root public/circuit2 (shared with frontend) by walking up from cwd or __dirname
 function findSharedCircuitBase(): string | null {
-  const wasmName = "transaction2.wasm";
-  const zkeyName = "transaction2.zkey";
   const searchRoots = [
     process.cwd(),
     __dirname,
@@ -171,10 +286,69 @@ app.post<{ Body: WithdrawRequest }>("/withdraw", async (request, reply) => {
   await warmupPromise;
 
   const body = request.body;
-  if (!body || !body.amountLamports || !body.recipient || !body.publicKey || !body.signature) {
+  if (!body || !body.paymentId || !body.publicKey || !body.signature) {
     return reply.status(400).send({
       success: false,
       error: "Missing required fields",
+    });
+  }
+
+  const paymentLink = PaymentLinksStore.getPaymentLink(body.paymentId);
+  if (!paymentLink) {
+    return reply.status(404).send({
+      success: false,
+      error: "Payment link not found",
+    });
+  }
+
+  if (!PaymentLinksStore.canAcceptPayment(body.paymentId)) {
+    return reply.status(410).send({
+      success: false,
+      error: "Payment link is no longer active",
+    });
+  }
+
+  if (SOL_MINT && paymentLink.tokenMint !== SOL_MINT) {
+    return reply.status(400).send({
+      success: false,
+      error: "Payment link is not SOL",
+    });
+  }
+
+  const amountLamports = body.amountLamports;
+  if (!amountLamports || amountLamports <= 0) {
+    return reply.status(400).send({
+      success: false,
+      error: "Amount is required",
+    });
+  }
+
+  const relayerConfig = await getRelayerConfig();
+  const recipientLamports =
+    body.recipientAmountLamports ??
+    (paymentLink.amountType === "fixed" ? paymentLink.fixedAmount : undefined) ??
+    computeRecipientLamportsFromTotal(amountLamports, relayerConfig);
+
+  if (!recipientLamports || recipientLamports <= 0) {
+    return reply.status(400).send({
+      success: false,
+      error: "Recipient amount is required",
+    });
+  }
+
+  const validation = PaymentLinksStore.validateAmount(body.paymentId, recipientLamports);
+  if (!validation.valid) {
+    return reply.status(400).send({
+      success: false,
+      error: validation.error,
+    });
+  }
+
+  const totalLamports = computeTotalLamportsForRecipient(recipientLamports, relayerConfig);
+  if (Math.abs(totalLamports - amountLamports) > 2) {
+    return reply.status(400).send({
+      success: false,
+      error: "Fee config changed; refresh and retry",
     });
   }
 
@@ -184,7 +358,7 @@ app.post<{ Body: WithdrawRequest }>("/withdraw", async (request, reply) => {
     body.signature
   );
   const sdk = await getSDK();
-  const recipientPubkey = new PublicKey(body.recipient);
+  const recipientPubkey = new PublicKey(paymentLink.recipientAddress);
   const storage = getStorageForPubkey(publicKey.toBase58());
 
   const startedAt = Date.now();
@@ -195,11 +369,11 @@ app.post<{ Body: WithdrawRequest }>("/withdraw", async (request, reply) => {
 
   try {
     const timeoutMs = 300000; // 5 minutes
-    const result = (await Promise.race([
+    const resultRaw = (await Promise.race([
       sdk.withdraw({
         lightWasm,
         connection,
-        amount_in_lamports: body.amountLamports,
+        amount_in_lamports: totalLamports,
         keyBasePath: KEY_BASE_PATH,
         publicKey,
         recipient: recipientPubkey,
@@ -209,15 +383,49 @@ app.post<{ Body: WithdrawRequest }>("/withdraw", async (request, reply) => {
       new Promise((_, reject) =>
         setTimeout(() => reject(new Error(`Withdraw timed out after ${timeoutMs}ms`)), timeoutMs)
       ),
-    ])) as WithdrawResult;
+    ])) as WithdrawSdkResult;
+
+    const actualRecipientLamports = resultRaw.amount_in_lamports;
+    const finalValidation = PaymentLinksStore.validateAmount(
+      body.paymentId,
+      actualRecipientLamports
+    );
+    if (!finalValidation.valid) {
+      request.log.error({
+        msg: "[prover-backend][withdraw] amount mismatch",
+        error: finalValidation.error,
+        paymentId: body.paymentId,
+        amount_in_lamports: actualRecipientLamports,
+      });
+      return reply.status(400).send({
+        success: false,
+        error: finalValidation.error || "Withdrawal amount does not match payment link",
+      });
+    }
+
+    if (!PaymentLinksStore.hasPaymentRecord(body.paymentId, resultRaw.tx)) {
+      PaymentLinksStore.addPaymentRecord(
+        body.paymentId,
+        actualRecipientLamports,
+        paymentLink.tokenMint,
+        resultRaw.tx
+      );
+      PaymentLinksStore.incrementUsageCount(body.paymentId);
+    }
+
+    const result: WithdrawResult = {
+      isPartial: resultRaw.isPartial,
+      amount_in_lamports: resultRaw.amount_in_lamports,
+      fee_in_lamports: resultRaw.fee_in_lamports,
+    };
 
     const elapsed = Date.now() - startedAt;
     request.log.info({
       msg: "[prover-backend][withdraw] success",
-      tx: result.tx,
-      amount_in_lamports: result.amount_in_lamports,
-      fee_in_lamports: result.fee_in_lamports,
-      isPartial: result.isPartial,
+      tx: resultRaw.tx,
+      amount_in_lamports: resultRaw.amount_in_lamports,
+      fee_in_lamports: resultRaw.fee_in_lamports,
+      isPartial: resultRaw.isPartial,
       elapsed_ms: elapsed,
     });
 
@@ -238,17 +446,86 @@ app.post<{ Body: WithdrawSplRequest }>("/withdraw-spl", async (request, reply) =
   await warmupPromise;
 
   const body = request.body;
-  if (
-    !body ||
-    !body.amountBaseUnits ||
-    !body.mintAddress ||
-    !body.recipient ||
-    !body.publicKey ||
-    !body.signature
-  ) {
+  if (!body || !body.paymentId || !body.publicKey || !body.signature) {
     return reply.status(400).send({
       success: false,
       error: "Missing required fields",
+    });
+  }
+
+  const paymentLink = PaymentLinksStore.getPaymentLink(body.paymentId);
+  if (!paymentLink) {
+    return reply.status(404).send({
+      success: false,
+      error: "Payment link not found",
+    });
+  }
+
+  if (!PaymentLinksStore.canAcceptPayment(body.paymentId)) {
+    return reply.status(410).send({
+      success: false,
+      error: "Payment link is no longer active",
+    });
+  }
+
+  if (SOL_MINT && paymentLink.tokenMint === SOL_MINT) {
+    return reply.status(400).send({
+      success: false,
+      error: "Payment link is SOL",
+    });
+  }
+
+  const amountBaseUnits = body.amountBaseUnits;
+  if (!amountBaseUnits || amountBaseUnits <= 0) {
+    return reply.status(400).send({
+      success: false,
+      error: "Amount is required",
+    });
+  }
+
+  const tokenInfo = tokenByMint.get(paymentLink.tokenMint);
+  if (!tokenInfo) {
+    return reply.status(400).send({
+      success: false,
+      error: "Unsupported token",
+    });
+  }
+
+  const relayerConfig = await getRelayerConfig();
+  const recipientBaseUnits =
+    body.recipientAmountBaseUnits ??
+    (paymentLink.amountType === "fixed" ? paymentLink.fixedAmount : undefined) ??
+    computeRecipientBaseUnitsFromTotal(
+      amountBaseUnits,
+      tokenInfo.units_per_token,
+      tokenInfo.name,
+      relayerConfig
+    );
+
+  if (!recipientBaseUnits || recipientBaseUnits <= 0) {
+    return reply.status(400).send({
+      success: false,
+      error: "Recipient amount is required",
+    });
+  }
+  const validation = PaymentLinksStore.validateAmount(body.paymentId, recipientBaseUnits);
+  if (!validation.valid) {
+    return reply.status(400).send({
+      success: false,
+      error: validation.error,
+    });
+  }
+
+  const totalBaseUnits = computeTotalBaseUnitsForRecipient(
+    recipientBaseUnits,
+    tokenInfo.units_per_token,
+    tokenInfo.name,
+    relayerConfig
+  );
+  if (Math.abs(totalBaseUnits - amountBaseUnits) > 2) {
+    return reply.status(400).send({
+      success: false,
+      error: "Fee config changed; refresh and retry",
     });
   }
 
@@ -258,7 +535,7 @@ app.post<{ Body: WithdrawSplRequest }>("/withdraw-spl", async (request, reply) =
     body.signature
   );
   const sdk = await getSDK();
-  const recipientPubkey = new PublicKey(body.recipient);
+  const recipientPubkey = new PublicKey(paymentLink.recipientAddress);
   const storage = getStorageForPubkey(publicKey.toBase58());
 
   const startedAt = Date.now();
@@ -269,12 +546,12 @@ app.post<{ Body: WithdrawSplRequest }>("/withdraw-spl", async (request, reply) =
 
   try {
     const timeoutMs = 300000; // 5 minutes
-    const result = (await Promise.race([
+    const resultRaw = (await Promise.race([
       sdk.withdrawSPL({
         lightWasm,
         connection,
-        base_units: body.amountBaseUnits,
-        mintAddress: body.mintAddress,
+        base_units: totalBaseUnits,
+        mintAddress: paymentLink.tokenMint,
         keyBasePath: KEY_BASE_PATH,
         publicKey,
         recipient: recipientPubkey,
@@ -284,15 +561,49 @@ app.post<{ Body: WithdrawSplRequest }>("/withdraw-spl", async (request, reply) =
       new Promise((_, reject) =>
         setTimeout(() => reject(new Error(`Withdraw timed out after ${timeoutMs}ms`)), timeoutMs)
       ),
-    ])) as WithdrawSplResult;
+    ])) as WithdrawSplSdkResult;
+
+    const actualRecipientBaseUnits = resultRaw.base_units;
+    const finalValidation = PaymentLinksStore.validateAmount(
+      body.paymentId,
+      actualRecipientBaseUnits
+    );
+    if (!finalValidation.valid) {
+      request.log.error({
+        msg: "[prover-backend][withdraw-spl] amount mismatch",
+        error: finalValidation.error,
+        paymentId: body.paymentId,
+        base_units: actualRecipientBaseUnits,
+      });
+      return reply.status(400).send({
+        success: false,
+        error: finalValidation.error || "Withdrawal amount does not match payment link",
+      });
+    }
+
+    if (!PaymentLinksStore.hasPaymentRecord(body.paymentId, resultRaw.tx)) {
+      PaymentLinksStore.addPaymentRecord(
+        body.paymentId,
+        actualRecipientBaseUnits,
+        paymentLink.tokenMint,
+        resultRaw.tx
+      );
+      PaymentLinksStore.incrementUsageCount(body.paymentId);
+    }
+
+    const result: WithdrawSplResult = {
+      isPartial: resultRaw.isPartial,
+      base_units: resultRaw.base_units,
+      fee_base_units: resultRaw.fee_base_units,
+    };
 
     const elapsed = Date.now() - startedAt;
     request.log.info({
       msg: "[prover-backend][withdraw-spl] success",
-      tx: result.tx,
-      base_units: result.base_units,
-      fee_base_units: result.fee_base_units,
-      isPartial: result.isPartial,
+      tx: resultRaw.tx,
+      base_units: resultRaw.base_units,
+      fee_base_units: resultRaw.fee_base_units,
+      isPartial: resultRaw.isPartial,
       elapsed_ms: elapsed,
     });
 

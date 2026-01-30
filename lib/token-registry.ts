@@ -1,7 +1,5 @@
 import { tokens as sdkTokens } from "privacycash/utils";
 
-type SdkToken = (typeof sdkTokens)[number];
-
 type UiTokenMeta = {
   name: string;
   label: string;

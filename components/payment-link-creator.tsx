@@ -8,11 +8,10 @@ import { WalletConnectButton } from "@/components/wallet-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { CopyButton } from "@/components/ui/copy-button";
 import { cn } from "@/lib/utils";
 import { AmountTokenInput } from "@/components/ui/amount-token-input";
 import { PaymentLinksAPI } from "@/lib/api-service";
-import type { PaymentLinkMetadata, TokenMint } from "@/lib/payment-links-types";
+import type { PaymentLinkPublicInfo, TokenMint } from "@/lib/payment-links-types";
 import {
   SOL_MINT,
   formatTokenAmount,
@@ -22,7 +21,7 @@ import {
 } from "@/lib/token-registry";
 import { Link2, CheckCircle2, Copy, Check } from "lucide-react";
 
-type CreatedLink = { metadata: PaymentLinkMetadata; url: string };
+type CreatedLink = { metadata: PaymentLinkPublicInfo; url: string };
 
 function CopyButtonWithIcon({ text, className }: { text: string; className?: string }) {
   const [copied, setCopied] = useState(false);

@@ -19,11 +19,32 @@ export function Typewriter({
   className,
 }: TypewriterProps) {
   const safeText = useMemo(() => text ?? "", [text]);
-  const [charIndex, setCharIndex] = useState(0);
+  return (
+    <TypewriterInner
+      key={safeText}
+      safeText={safeText}
+      delay={delay}
+      baseText={baseText}
+      speedMs={speedMs}
+      className={className}
+    />
+  );
+}
 
-  useEffect(() => {
-    setCharIndex(0);
-  }, [safeText]);
+function TypewriterInner({
+  safeText,
+  delay,
+  baseText,
+  speedMs,
+  className,
+}: {
+  safeText: string;
+  delay: number;
+  baseText: string;
+  speedMs: number;
+  className?: string;
+}) {
+  const [charIndex, setCharIndex] = useState(0);
 
   useEffect(() => {
     if (!safeText) return;

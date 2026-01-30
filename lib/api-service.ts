@@ -8,7 +8,6 @@
 
 import type {
   PaymentLinkPublicInfo,
-  PaymentLinkMetadata,
   CreatePaymentLinkRequest,
   CreatePaymentLinkResponse,
   PaymentLinksListResponse,
@@ -23,32 +22,29 @@ const BACKEND_URL =
     : process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:4000";
 
 type WithdrawRequest = {
+  paymentId: string;
   amountLamports: number;
-  recipient: string;
+  recipientAmountLamports?: number;
   publicKey: string;
   signature: string;
 };
 
 type WithdrawResult = {
   isPartial: boolean;
-  tx: string;
-  recipient: string;
   amount_in_lamports: number;
   fee_in_lamports: number;
 };
 
 type WithdrawSplRequest = {
+  paymentId: string;
   amountBaseUnits: number;
-  mintAddress: string;
-  recipient: string;
+  recipientAmountBaseUnits?: number;
   publicKey: string;
   signature: string;
 };
 
 type WithdrawSplResult = {
   isPartial: boolean;
-  tx: string;
-  recipient: string;
   base_units: number;
   fee_base_units: number;
 };
@@ -118,40 +114,6 @@ export const PaymentLinksAPI = {
   }> {
     return fetchAPI(`/payment-links/${paymentId}`, {
       method: "GET",
-    });
-  },
-
-  /**
-   * Get recipient address for a payment link
-   */
-  async getRecipient(
-    paymentId: string,
-    amount: number
-  ): Promise<{
-    success: boolean;
-    data?: { success: boolean; recipientAddress: string };
-    error?: string;
-  }> {
-    return fetchAPI(`/payment-links/${paymentId}/recipient`, {
-      method: "POST",
-      body: JSON.stringify({ amount }),
-    });
-  },
-
-  /**
-   * Mark payment as complete
-   */
-  async completePayment(
-    paymentId: string,
-    request: { txSignature: string; amount: number }
-  ): Promise<{
-    success: boolean;
-    data?: { success: boolean };
-    error?: string;
-  }> {
-    return fetchAPI(`/payment-links/${paymentId}/complete`, {
-      method: "POST",
-      body: JSON.stringify(request),
     });
   },
 

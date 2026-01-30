@@ -1,4 +1,4 @@
-import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import { FastifyInstance } from "fastify";
 import { PublicKey } from "@solana/web3.js";
 import { tokens as sdkTokens } from "privacycash/utils";
 import { PaymentLinksStore } from "../../services/payment-links/store";
@@ -8,14 +8,6 @@ import {
   CreatePaymentLinkResponse,
   PaymentLinkPublicInfo,
 } from "../../types/payment-links";
-
-interface GetRecipientRequest {
-  amount: number;
-}
-
-interface GetRecipientParams {
-  paymentId: string;
-}
 
 interface PaymentLinkQuery {
   recipientAddress: string;
@@ -46,7 +38,9 @@ export async function paymentLinksRoutes(app: FastifyInstance) {
         });
       }
 
-      const paymentLinks = PaymentLinksStore.listPaymentLinksByRecipient(recipientAddress);
+      const paymentLinks = PaymentLinksStore.listPaymentLinksByRecipient(recipientAddress)
+        .map((link) => PaymentLinksStore.getPaymentLinkPublicInfo(link.paymentId))
+        .filter((link): link is PaymentLinkPublicInfo => Boolean(link));
 
       return reply.send({
         success: true,
@@ -101,7 +95,7 @@ export async function paymentLinksRoutes(app: FastifyInstance) {
       // Validate recipient address
       try {
         new PublicKey(body.recipientAddress);
-      } catch (err) {
+      } catch {
         return reply.status(400).send({
           success: false,
           error: "Invalid recipient address",
@@ -131,13 +125,21 @@ export async function paymentLinksRoutes(app: FastifyInstance) {
 
       // Create payment link
       const paymentLink = PaymentLinksStore.createPaymentLink(body);
+      const paymentLinkPublic = PaymentLinksStore.getPaymentLinkPublicInfo(paymentLink.paymentId);
+
+      if (!paymentLinkPublic) {
+        return reply.status(500).send({
+          success: false,
+          error: "Failed to prepare payment link",
+        });
+      }
 
       // TODO: Base URL should be configurable
       const url = `${request.protocol}://${request.hostname}/pay/${paymentLink.paymentId}`;
 
       const response: CreatePaymentLinkResponse = {
         success: true,
-        paymentLink,
+        paymentLink: paymentLinkPublic,
         url,
       };
 
@@ -217,10 +219,12 @@ export async function paymentLinksRoutes(app: FastifyInstance) {
           });
         }
 
-        PaymentLinksStore.addPaymentRecord(paymentId, amount, paymentLink.tokenMint, txSignature);
+        if (!PaymentLinksStore.hasPaymentRecord(paymentId, txSignature)) {
+          PaymentLinksStore.addPaymentRecord(paymentId, amount, paymentLink.tokenMint, txSignature);
 
-        // Increment usage count (marks one-time links as completed)
-        PaymentLinksStore.incrementUsageCount(paymentId);
+          // Increment usage count (marks one-time links as completed)
+          PaymentLinksStore.incrementUsageCount(paymentId);
+        }
 
         return reply.send({ success: true });
       } catch (error) {
@@ -231,59 +235,6 @@ export async function paymentLinksRoutes(app: FastifyInstance) {
         return reply.status(500).send({
           success: false,
           error: "Failed to complete payment",
-        });
-      }
-    }
-  );
-
-  // Get recipient
-  app.post<{ Body: GetRecipientRequest; Params: GetRecipientParams }>(
-    "/payment-links/:paymentId/recipient",
-    async (request, reply) => {
-      try {
-        const { paymentId } = request.params;
-        const body = request.body;
-
-        // Get payment link
-        const paymentLink = PaymentLinksStore.getPaymentLink(paymentId);
-
-        if (!paymentLink) {
-          return reply.status(404).send({
-            success: false,
-            error: "Payment link not found",
-          });
-        }
-
-        // Check if payment link can accept payments
-        if (!PaymentLinksStore.canAcceptPayment(paymentId)) {
-          return reply.status(410).send({
-            success: false,
-            error: "Payment link is no longer active",
-          });
-        }
-
-        // Validate amount
-        const validation = PaymentLinksStore.validateAmount(paymentId, body.amount);
-        if (!validation.valid) {
-          return reply.status(400).send({
-            success: false,
-            error: validation.error,
-          });
-        }
-
-        // Return the recipient address
-        return reply.send({
-          success: true,
-          recipientAddress: paymentLink.recipientAddress,
-        });
-      } catch (error) {
-        request.log.error({
-          msg: "Error getting recipient",
-          error: error instanceof Error ? error.message : String(error),
-        });
-        return reply.status(500).send({
-          success: false,
-          error: "Failed to get recipient",
         });
       }
     }

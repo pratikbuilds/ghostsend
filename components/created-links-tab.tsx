@@ -6,11 +6,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CopyButton } from "@/components/ui/copy-button";
 import { Input } from "@/components/ui/input";
-import type { PaymentLinkMetadata } from "@/lib/payment-links-types";
+import type { PaymentLinkPublicInfo } from "@/lib/payment-links-types";
 import { formatTokenAmount, getTokenByMint } from "@/lib/token-registry";
 
 interface CreatedLinksTabProps {
-  links: PaymentLinkMetadata[];
+  links: PaymentLinkPublicInfo[];
   loading: boolean;
   onDelete: (paymentId: string) => void;
   isWalletConnected: boolean;

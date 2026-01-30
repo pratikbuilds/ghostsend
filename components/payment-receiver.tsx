@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useWallet } from "@jup-ag/wallet-adapter";
 import { Connection, PublicKey, VersionedTransaction } from "@solana/web3.js";
 import { getAssociatedTokenAddress } from "@solana/spl-token";
@@ -197,7 +198,7 @@ export function PaymentReceiver({ paymentId, onSigningChange }: PaymentReceiverP
       setError(err instanceof Error ? err.message : "Failed to fetch balances");
       setStatus("error");
     }
-  }, [connection, getWalletAdapter, isSolToken, publicKey, token]);
+  }, [connection, getPublicTokenBalance, getWalletAdapter, isSolToken, publicKey, token]);
 
   useEffect(() => {
     if (!publicKey || !token || balancesChecked || status === "checking") return;
@@ -391,30 +392,25 @@ export function PaymentReceiver({ paymentId, onSigningChange }: PaymentReceiverP
 
     try {
       const walletAdapter = getWalletAdapter();
-      const recipientResult = await PaymentLinksAPI.getRecipient(paymentId, amountBaseUnits);
-
-      if (!recipientResult.success || !recipientResult.data) {
-        throw new Error(recipientResult.error || "Failed to get recipient");
-      }
-
       const totalToDeduct = payFeeBreakdown?.totalFromPrivateBaseUnits ?? amountBaseUnits;
 
-      const withdrawResult = await (async () => {
+      await (async () => {
         const existingSignature = getSessionSignature(walletAdapter.publicKey);
         const signature = existingSignature ?? (await signSessionMessage(walletAdapter));
         const signatureBase64 = toBase64(signature);
 
         const withdrawApiResult = isSolToken
           ? await PrivacyCashAPI.withdraw({
+              paymentId,
               amountLamports: totalToDeduct,
-              recipient: recipientResult.data!.recipientAddress,
+              recipientAmountLamports: amountBaseUnits,
               publicKey: walletAdapter.publicKey.toBase58(),
               signature: signatureBase64,
             })
           : await PrivacyCashAPI.withdrawSpl({
+              paymentId,
               amountBaseUnits: totalToDeduct,
-              mintAddress: token.mint,
-              recipient: recipientResult.data!.recipientAddress,
+              recipientAmountBaseUnits: amountBaseUnits,
               publicKey: walletAdapter.publicKey.toBase58(),
               signature: signatureBase64,
             });
@@ -422,14 +418,7 @@ export function PaymentReceiver({ paymentId, onSigningChange }: PaymentReceiverP
         if (!withdrawApiResult.success) {
           throw new Error(withdrawApiResult.error || "Backend withdraw failed");
         }
-
-        return withdrawApiResult.data!.result;
       })();
-
-      await PaymentLinksAPI.completePayment(paymentId, {
-        txSignature: withdrawResult.tx,
-        amount: amountBaseUnits,
-      });
 
       setStatus("success");
       setLogQueue([]);
@@ -555,7 +544,7 @@ export function PaymentReceiver({ paymentId, onSigningChange }: PaymentReceiverP
             asChild
             className="btn-neon h-14 w-full rounded-lg bg-primary text-primary-foreground text-lg font-semibold"
           >
-            <a href="/">Done</a>
+            <Link href="/">Done</Link>
           </Button>
         </CardContent>
       </Card>

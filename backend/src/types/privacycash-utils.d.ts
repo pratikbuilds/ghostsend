@@ -4,6 +4,11 @@
  */
 declare module "privacycash/utils" {
   import { PublicKey } from "@solana/web3.js";
+  type RelayerConfigKeys = {
+    withdraw_fee_rate: number;
+    withdraw_rent_fee: number;
+    rent_fees: Record<string, number>;
+  };
   export const tokens: Array<{
     name: string;
     prefix: string;
@@ -15,6 +20,9 @@ declare module "privacycash/utils" {
   export class EncryptionService {
     deriveEncryptionKeyFromSignature(signature: Uint8Array): void;
   }
+  export function getConfig<K extends keyof RelayerConfigKeys>(
+    key: K
+  ): Promise<RelayerConfigKeys[K]>;
   export function withdraw(opts: Record<string, unknown>): Promise<unknown>;
   export function withdrawSPL(opts: Record<string, unknown>): Promise<unknown>;
 }

@@ -27,7 +27,8 @@ function generatePaymentId(): string {
  * Convert full metadata to public info (strips recipient address)
  */
 function toPublicInfo(metadata: PaymentLinkMetadata): PaymentLinkPublicInfo {
-  const { recipientAddress, ...publicInfo } = metadata;
+  const publicInfo = { ...metadata } as PaymentLinkPublicInfo & { recipientAddress?: string };
+  delete publicInfo.recipientAddress;
   return publicInfo;
 }
 
