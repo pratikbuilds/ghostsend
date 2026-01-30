@@ -54,7 +54,7 @@
   --card-foreground: oklch(0.98 0.005 240);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.30 0.15 250); /* Rich dark blue */
+  --primary: oklch(0.3 0.15 250); /* Rich dark blue */
   --primary-foreground: oklch(0.98 0.005 240);
   --secondary: oklch(0.95 0.05 130);
   --secondary-foreground: oklch(0.35 0.08 240);
@@ -69,8 +69,8 @@
   --chart-1: oklch(0.72 0.15 220);
   --chart-2: oklch(0.77 0.18 130);
   --chart-3: oklch(0.65 0.16 220);
-  --chart-4: oklch(0.70 0.16 175);
-  --chart-5: oklch(0.60 0.14 220);
+  --chart-4: oklch(0.7 0.16 175);
+  --chart-5: oklch(0.6 0.14 220);
   --radius: 0.625rem;
   --sidebar: oklch(0.98 0.01 220);
   --sidebar-foreground: oklch(0.145 0 0);
@@ -109,8 +109,8 @@
   --chart-1: oklch(0.72 0.15 220);
   --chart-2: oklch(0.77 0.18 130);
   --chart-3: oklch(0.65 0.16 220);
-  --chart-4: oklch(0.70 0.16 175);
-  --chart-5: oklch(0.60 0.14 220);
+  --chart-4: oklch(0.7 0.16 175);
+  --chart-5: oklch(0.6 0.14 220);
   --sidebar: oklch(0.16 0.015 220);
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.72 0.15 220);
@@ -148,14 +148,14 @@
 }
 
 .wallet-adapter-button-trigger {
-  background: oklch(0.30 0.15 250) !important;
+  background: oklch(0.3 0.15 250) !important;
   color: oklch(0.98 0.005 240) !important;
-  border: 1px solid oklch(0.30 0.15 250 / 0.2) !important;
+  border: 1px solid oklch(0.3 0.15 250 / 0.2) !important;
   border-radius: var(--radius-lg) !important;
   padding: 0.5rem 1rem !important;
   font-weight: 600 !important;
   height: 2.5rem !important;
-  box-shadow: 
+  box-shadow:
     0 4px 6px oklch(0 0 0 / 0.1),
     0 2px 4px oklch(0 0 0 / 0.1),
     0 0 0 1px oklch(1 0 0 / 0.05) inset;
@@ -165,7 +165,7 @@
 .wallet-adapter-button-trigger:hover {
   background: oklch(0.35 0.17 250) !important;
   transform: translateY(-1px);
-  box-shadow: 
+  box-shadow:
     0 6px 8px oklch(0 0 0 / 0.15),
     0 4px 6px oklch(0 0 0 / 0.1),
     0 0 0 1px oklch(1 0 0 / 0.1) inset;
@@ -228,8 +228,8 @@
   background: oklch(0.15 0.02 240 / 0.7);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  border: 1px solid oklch(0.30 0.15 250 / 0.1);
-  box-shadow: 
+  border: 1px solid oklch(0.3 0.15 250 / 0.1);
+  box-shadow:
     0 4px 6px -1px oklch(0 0 0 / 0.1),
     0 2px 4px -2px oklch(0 0 0 / 0.1),
     0 0 0 1px oklch(1 0 0 / 0.05) inset;
@@ -277,7 +277,11 @@
 /* Subtle dot pattern */
 .dot-pattern {
   background-color: oklch(0.13 0.015 220);
-  background-image: radial-gradient(circle at center, oklch(0.30 0.15 250 / 0.15) 1px, transparent 1px);
+  background-image: radial-gradient(
+    circle at center,
+    oklch(0.3 0.15 250 / 0.15) 1px,
+    transparent 1px
+  );
   background-size: 24px 24px;
   background-position: center;
   position: relative;
@@ -340,7 +344,10 @@
     0 0 0 1px oklch(0.72 0.15 220 / 25%),
     0 4px 14px oklch(0.72 0.15 220 / 25%),
     0 0 28px oklch(0.72 0.15 220 / 15%);
-  transition: transform 0.15s ease-out, box-shadow 0.2s ease-out, opacity 0.2s;
+  transition:
+    transform 0.15s ease-out,
+    box-shadow 0.2s ease-out,
+    opacity 0.2s;
 }
 .btn-neon:hover:not(:disabled) {
   box-shadow:

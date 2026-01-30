@@ -5,13 +5,13 @@
  * For production, replace with Redis or PostgreSQL.
  */
 
-import { nanoid } from 'nanoid';
+import { nanoid } from "nanoid";
 import type {
   PaymentLinkMetadata,
   PaymentLinkPublicInfo,
   CreatePaymentLinkRequest,
-} from './payment-links-types';
-import { formatTokenAmount, getTokenByMint } from './token-registry';
+} from "./payment-links-types";
+import { formatTokenAmount, getTokenByMint } from "./token-registry";
 
 // In-memory store
 const paymentLinks = new Map<string, PaymentLinkMetadata>();
@@ -43,23 +43,23 @@ export const PaymentLinksStore = {
 
     // Validate request
     if (!request.recipientAddress) {
-      throw new Error('Recipient address is required');
+      throw new Error("Recipient address is required");
     }
 
-    if (request.amountType === 'fixed' && !request.fixedAmount) {
-      throw new Error('Fixed amount is required for fixed amount type');
+    if (request.amountType === "fixed" && !request.fixedAmount) {
+      throw new Error("Fixed amount is required for fixed amount type");
     }
 
-    if (request.amountType === 'fixed' && request.fixedAmount! <= 0) {
-      throw new Error('Fixed amount must be positive');
+    if (request.amountType === "fixed" && request.fixedAmount! <= 0) {
+      throw new Error("Fixed amount must be positive");
     }
 
     if (request.minAmount && request.minAmount < 0) {
-      throw new Error('Min amount cannot be negative');
+      throw new Error("Min amount cannot be negative");
     }
 
     if (request.maxAmount && request.minAmount && request.maxAmount < request.minAmount) {
-      throw new Error('Max amount must be greater than min amount');
+      throw new Error("Max amount must be greater than min amount");
     }
 
     const metadata: PaymentLinkMetadata = {
@@ -75,7 +75,7 @@ export const PaymentLinksStore = {
       label: request.label,
       message: request.message,
       createdAt: Date.now(),
-      status: 'active',
+      status: "active",
       usageCount: 0,
     };
 
@@ -106,7 +106,7 @@ export const PaymentLinksStore = {
   canAcceptPayment(paymentId: string): boolean {
     const link = paymentLinks.get(paymentId);
     if (!link) return false;
-    if (link.status !== 'active') return false;
+    if (link.status !== "active") return false;
     if (!link.reusable && link.usageCount > 0) return false;
     if (link.maxUsageCount && link.usageCount >= link.maxUsageCount) return false;
     return true;
@@ -117,10 +117,10 @@ export const PaymentLinksStore = {
    */
   validateAmount(paymentId: string, amount: number): { valid: boolean; error?: string } {
     const link = paymentLinks.get(paymentId);
-    if (!link) return { valid: false, error: 'Payment link not found' };
+    if (!link) return { valid: false, error: "Payment link not found" };
 
     if (amount <= 0) {
-      return { valid: false, error: 'Amount must be positive' };
+      return { valid: false, error: "Amount must be positive" };
     }
 
     const token = getTokenByMint(link.tokenMint);
@@ -129,9 +129,12 @@ export const PaymentLinksStore = {
       return `${formatTokenAmount(value, token)} ${token.label}`;
     };
 
-    if (link.amountType === 'fixed') {
+    if (link.amountType === "fixed") {
       if (amount !== link.fixedAmount) {
-        return { valid: false, error: `Amount must be exactly ${formatAmount(link.fixedAmount ?? 0)}` };
+        return {
+          valid: false,
+          error: `Amount must be exactly ${formatAmount(link.fixedAmount ?? 0)}`,
+        };
       }
     } else {
       // Flexible amount
@@ -157,12 +160,12 @@ export const PaymentLinksStore = {
 
     // Mark as completed if one-time link
     if (!link.reusable) {
-      link.status = 'completed';
+      link.status = "completed";
     }
 
     // Mark as completed if reached max usage
     if (link.maxUsageCount && link.usageCount >= link.maxUsageCount) {
-      link.status = 'completed';
+      link.status = "completed";
     }
 
     paymentLinks.set(paymentId, link);
@@ -171,7 +174,7 @@ export const PaymentLinksStore = {
   /**
    * Update payment link status
    */
-  updatePaymentLinkStatus(paymentId: string, status: PaymentLinkMetadata['status']): void {
+  updatePaymentLinkStatus(paymentId: string, status: PaymentLinkMetadata["status"]): void {
     const link = paymentLinks.get(paymentId);
     if (!link) return;
     link.status = status;

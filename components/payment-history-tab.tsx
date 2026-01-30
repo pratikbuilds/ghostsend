@@ -62,9 +62,7 @@ export function PaymentHistoryTab({
               <div>
                 <div className="text-sm font-semibold">{amountLabel}</div>
                 <div className="text-xs text-muted-foreground">{dateLabel}</div>
-                <div className="text-xs text-muted-foreground">
-                  Status: {payment.status}
-                </div>
+                <div className="text-xs text-muted-foreground">Status: {payment.status}</div>
               </div>
               <Button asChild variant="outline">
                 <a href={explorerUrl} target="_blank" rel="noopener noreferrer">

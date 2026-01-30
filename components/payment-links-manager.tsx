@@ -7,10 +7,7 @@ import { PaymentLinkCreator } from "@/components/payment-link-creator";
 import { CreatedLinksTab } from "@/components/created-links-tab";
 import { PaymentHistoryTab } from "@/components/payment-history-tab";
 import { PaymentLinksAPI } from "@/lib/api-service";
-import type {
-  PaymentLinkMetadata,
-  PaymentRecord,
-} from "@/lib/payment-links-types";
+import type { PaymentLinkMetadata, PaymentRecord } from "@/lib/payment-links-types";
 
 type TabKey = "request" | "links" | "history";
 
@@ -28,15 +25,11 @@ export function PaymentLinksManager() {
     setLoadingLinks(true);
     setError(null);
     try {
-      const result = await PaymentLinksAPI.listPaymentLinks(
-        publicKey.toBase58(),
-      );
+      const result = await PaymentLinksAPI.listPaymentLinks(publicKey.toBase58());
       if (!result.success || !result.data) {
         throw new Error(result.error || "Failed to load payment links");
       }
-      const links = [...result.data.paymentLinks].sort(
-        (a, b) => b.createdAt - a.createdAt,
-      );
+      const links = [...result.data.paymentLinks].sort((a, b) => b.createdAt - a.createdAt);
       setCreatedLinks(links);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load links");
@@ -50,15 +43,11 @@ export function PaymentLinksManager() {
     setLoadingHistory(true);
     setError(null);
     try {
-      const result = await PaymentLinksAPI.listPaymentHistory(
-        publicKey.toBase58(),
-      );
+      const result = await PaymentLinksAPI.listPaymentHistory(publicKey.toBase58());
       if (!result.success || !result.data) {
         throw new Error(result.error || "Failed to load payment history");
       }
-      const payments = [...result.data.payments].sort(
-        (a, b) => b.completedAt - a.completedAt,
-      );
+      const payments = [...result.data.payments].sort((a, b) => b.completedAt - a.completedAt);
       setPaymentHistory(payments);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load history");
@@ -77,38 +66,26 @@ export function PaymentLinksManager() {
     }
   }, [activeTab, publicKey, refreshLinks, refreshHistory]);
 
-  const handleCreated = useCallback(
-    (created: { metadata: PaymentLinkMetadata }) => {
-      setCreatedLinks((prev) => [created.metadata, ...prev]);
-    },
-    [],
-  );
+  const handleCreated = useCallback((created: { metadata: PaymentLinkMetadata }) => {
+    setCreatedLinks((prev) => [created.metadata, ...prev]);
+  }, []);
 
   const handleDelete = useCallback(
     async (paymentId: string) => {
       if (!publicKey) return;
       setError(null);
       try {
-        const result = await PaymentLinksAPI.deletePaymentLink(
-          paymentId,
-          publicKey.toBase58(),
-        );
+        const result = await PaymentLinksAPI.deletePaymentLink(paymentId, publicKey.toBase58());
         if (!result.success) {
           throw new Error(result.error || "Failed to delete payment link");
         }
-        setCreatedLinks((prev) =>
-          prev.filter((link) => link.paymentId !== paymentId),
-        );
-        setPaymentHistory((prev) =>
-          prev.filter((record) => record.paymentId !== paymentId),
-        );
+        setCreatedLinks((prev) => prev.filter((link) => link.paymentId !== paymentId));
+        setPaymentHistory((prev) => prev.filter((record) => record.paymentId !== paymentId));
       } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Failed to delete payment link",
-        );
+        setError(err instanceof Error ? err.message : "Failed to delete payment link");
       }
     },
-    [publicKey],
+    [publicKey]
   );
 
   return (
@@ -120,19 +97,13 @@ export function PaymentLinksManager() {
       >
         <div className="shrink-0 space-y-6">
           <TabsList variant="pill" className="mx-auto">
-            <TabsTrigger
-              value="request"
-              className="text-xs font-mono uppercase"
-            >
+            <TabsTrigger value="request" className="text-xs font-mono uppercase">
               Create Link
             </TabsTrigger>
             <TabsTrigger value="links" className="text-xs font-mono uppercase">
               Created
             </TabsTrigger>
-            <TabsTrigger
-              value="history"
-              className="text-xs font-mono uppercase"
-            >
+            <TabsTrigger value="history" className="text-xs font-mono uppercase">
               History
             </TabsTrigger>
           </TabsList>
@@ -144,17 +115,11 @@ export function PaymentLinksManager() {
           )}
         </div>
 
-        <TabsContent
-          value="request"
-          className="mt-0 flex-initial min-h-0 outline-none"
-        >
+        <TabsContent value="request" className="mt-0 flex-initial min-h-0 outline-none">
           <PaymentLinkCreator onCreated={handleCreated} />
         </TabsContent>
 
-        <TabsContent
-          value="links"
-          className="mt-0 flex-1 min-h-0 overflow-auto outline-none"
-        >
+        <TabsContent value="links" className="mt-0 flex-1 min-h-0 overflow-auto outline-none">
           <CreatedLinksTab
             links={createdLinks}
             loading={loadingLinks}
@@ -163,10 +128,7 @@ export function PaymentLinksManager() {
           />
         </TabsContent>
 
-        <TabsContent
-          value="history"
-          className="mt-0 flex-1 min-h-0 overflow-auto outline-none"
-        >
+        <TabsContent value="history" className="mt-0 flex-1 min-h-0 overflow-auto outline-none">
           <PaymentHistoryTab
             payments={paymentHistory}
             loading={loadingHistory}

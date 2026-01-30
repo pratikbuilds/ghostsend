@@ -39,8 +39,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary",
     title: "ghostsend | Private Payments on Solana",
-    description:
-      "Send and receive private payments on Solana with zero-knowledge proofs.",
+    description: "Send and receive private payments on Solana with zero-knowledge proofs.",
     images: ["/new_logo.png"],
   },
 };
@@ -52,9 +51,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${jetbrainsMono.variable} dark`}>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <WalletProviderClient>{children}</WalletProviderClient>
       </body>
     </html>

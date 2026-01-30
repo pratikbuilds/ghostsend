@@ -24,7 +24,7 @@ const tokenByMint = new Map<string, SDKToken>(
   sdkTokens.map((token: SDKToken) => [
     typeof token.pubkey === "string" ? token.pubkey : token.pubkey.toBase58(),
     token,
-  ]),
+  ])
 );
 
 function getDecimals(unitsPerToken: number) {
@@ -88,11 +88,7 @@ export const PaymentLinksStore = {
       throw new Error("Min amount cannot be negative");
     }
 
-    if (
-      request.maxAmount &&
-      request.minAmount &&
-      request.maxAmount < request.minAmount
-    ) {
+    if (request.maxAmount && request.minAmount && request.maxAmount < request.minAmount) {
       throw new Error("Max amount must be greater than min amount");
     }
 
@@ -142,18 +138,14 @@ export const PaymentLinksStore = {
     if (!link) return false;
     if (link.status !== "active") return false;
     if (!link.reusable && link.usageCount > 0) return false;
-    if (link.maxUsageCount && link.usageCount >= link.maxUsageCount)
-      return false;
+    if (link.maxUsageCount && link.usageCount >= link.maxUsageCount) return false;
     return true;
   },
 
   /**
    * Validate payment amount against link requirements
    */
-  validateAmount(
-    paymentId: string,
-    amount: number,
-  ): { valid: boolean; error?: string } {
+  validateAmount(paymentId: string, amount: number): { valid: boolean; error?: string } {
     const link = paymentLinks.get(paymentId);
     if (!link) return { valid: false, error: "Payment link not found" };
 
@@ -167,7 +159,7 @@ export const PaymentLinksStore = {
           valid: false,
           error: `Amount must be exactly ${formatAmountForToken(
             link.fixedAmount ?? 0,
-            link.tokenMint,
+            link.tokenMint
           )}`,
         };
       }
@@ -176,19 +168,13 @@ export const PaymentLinksStore = {
       if (link.minAmount && amount < link.minAmount) {
         return {
           valid: false,
-          error: `Amount must be at least ${formatAmountForToken(
-            link.minAmount,
-            link.tokenMint,
-          )}`,
+          error: `Amount must be at least ${formatAmountForToken(link.minAmount, link.tokenMint)}`,
         };
       }
       if (link.maxAmount && amount > link.maxAmount) {
         return {
           valid: false,
-          error: `Amount cannot exceed ${formatAmountForToken(
-            link.maxAmount,
-            link.tokenMint,
-          )}`,
+          error: `Amount cannot exceed ${formatAmountForToken(link.maxAmount, link.tokenMint)}`,
         };
       }
     }
@@ -221,10 +207,7 @@ export const PaymentLinksStore = {
   /**
    * Update payment link status
    */
-  updatePaymentLinkStatus(
-    paymentId: string,
-    status: PaymentLinkMetadata["status"],
-  ): void {
+  updatePaymentLinkStatus(paymentId: string, status: PaymentLinkMetadata["status"]): void {
     const link = paymentLinks.get(paymentId);
     if (!link) return;
     link.status = status;
@@ -236,7 +219,7 @@ export const PaymentLinksStore = {
    */
   listPaymentLinksByRecipient(recipientAddress: string): PaymentLinkMetadata[] {
     return Array.from(paymentLinks.values()).filter(
-      (link) => link.recipientAddress === recipientAddress,
+      (link) => link.recipientAddress === recipientAddress
     );
   },
 
@@ -247,7 +230,7 @@ export const PaymentLinksStore = {
     paymentId: string,
     amount: number,
     tokenMint: TokenMint,
-    txSignature: string,
+    txSignature: string
   ): PaymentRecord {
     const record: PaymentRecord = {
       id: nanoid(12),
@@ -269,14 +252,10 @@ export const PaymentLinksStore = {
    */
   listPaymentRecordsByRecipient(recipientAddress: string): PaymentRecord[] {
     const recipientLinks = new Set(
-      this.listPaymentLinksByRecipient(recipientAddress).map(
-        (link) => link.paymentId,
-      ),
+      this.listPaymentLinksByRecipient(recipientAddress).map((link) => link.paymentId)
     );
 
-    return paymentRecords.filter((record) =>
-      recipientLinks.has(record.paymentId),
-    );
+    return paymentRecords.filter((record) => recipientLinks.has(record.paymentId));
   },
 
   /**

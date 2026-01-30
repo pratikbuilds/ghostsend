@@ -75,9 +75,7 @@ export function CreatedLinksTab({
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="space-y-1">
                   <div className="text-lg font-semibold">{amountLabel}</div>
-                  <div className="text-xs text-muted-foreground">
-                    Created {createdAt}
-                  </div>
+                  <div className="text-xs text-muted-foreground">Created {createdAt}</div>
                 </div>
                 <Badge variant={link.status === "completed" ? "secondary" : "outline"}>
                   {statusLabel}

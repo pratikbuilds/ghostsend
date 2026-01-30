@@ -2,13 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useUnifiedWalletContext, useWallet } from "@jup-ag/wallet-adapter";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { WalletConnectButton } from "@/components/wallet-button";
 import { Input } from "@/components/ui/input";
@@ -30,13 +24,7 @@ import { Link2, CheckCircle2, Copy, Check } from "lucide-react";
 
 type CreatedLink = { metadata: PaymentLinkMetadata; url: string };
 
-function CopyButtonWithIcon({
-  text,
-  className,
-}: {
-  text: string;
-  className?: string;
-}) {
+function CopyButtonWithIcon({ text, className }: { text: string; className?: string }) {
   const [copied, setCopied] = useState(false);
   const handleCopy = async () => {
     try {
@@ -54,9 +42,8 @@ function CopyButtonWithIcon({
       size="sm"
       className={cn(
         "h-11 shrink-0 gap-2 rounded-lg border-primary/30 bg-primary/5 px-4 font-medium text-primary hover:bg-primary/10 hover:border-primary/50 transition-all [&_svg]:size-4",
-        copied &&
-          "border-green-500/40 bg-green-500/10 text-green-600 dark:text-green-400",
-        className,
+        copied && "border-green-500/40 bg-green-500/10 text-green-600 dark:text-green-400",
+        className
       )}
     >
       {copied ? (
@@ -82,9 +69,7 @@ export function PaymentLinkCreator({ onCreated }: PaymentLinkCreatorProps) {
   const { publicKey } = useWallet();
   const { setShowModal } = useUnifiedWalletContext();
 
-  const [tokenMint, setTokenMint] = useState<TokenMint>(
-    SOL_MINT || tokenRegistry[0]?.mint || "",
-  );
+  const [tokenMint, setTokenMint] = useState<TokenMint>(SOL_MINT || tokenRegistry[0]?.mint || "");
   const [amount, setAmount] = useState("");
   const [message, setMessage] = useState("");
   const [recipientAddress, setRecipientAddress] = useState("");
@@ -158,9 +143,7 @@ export function PaymentLinkCreator({ onCreated }: PaymentLinkCreatorProps) {
       setAmount("");
       setMessage("");
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to create payment link",
-      );
+      setError(err instanceof Error ? err.message : "Failed to create payment link");
     } finally {
       setLoading(false);
     }
@@ -185,17 +168,13 @@ export function PaymentLinkCreator({ onCreated }: PaymentLinkCreatorProps) {
               className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 ring-2 ring-primary/20"
               aria-hidden
             >
-              <CheckCircle2
-                className="h-8 w-8 text-primary"
-                strokeWidth={1.75}
-              />
+              <CheckCircle2 className="h-8 w-8 text-primary" strokeWidth={1.75} />
             </div>
             <CardTitle className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
               Payment link ready
             </CardTitle>
             <CardDescription className="text-sm text-muted-foreground">
-              Share the link below — recipients can pay without seeing your
-              wallet
+              Share the link below — recipients can pay without seeing your wallet
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6 px-6 pb-8 pt-4">
@@ -220,7 +199,7 @@ export function PaymentLinkCreator({ onCreated }: PaymentLinkCreatorProps) {
               const icon = token?.icon;
               const amountStr = formatAmount(
                 createdLink.metadata.fixedAmount,
-                createdLink.metadata.tokenMint,
+                createdLink.metadata.tokenMint
               );
               return (
                 <div className="flex flex-col gap-1 rounded-lg border border-border/50 bg-muted/10 px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
@@ -258,9 +237,7 @@ export function PaymentLinkCreator({ onCreated }: PaymentLinkCreatorProps) {
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Message
                 </p>
-                <p className="mt-1.5 text-sm text-foreground">
-                  {createdLink.metadata.message}
-                </p>
+                <p className="mt-1.5 text-sm text-foreground">{createdLink.metadata.message}</p>
               </div>
             )}
 
@@ -282,8 +259,7 @@ export function PaymentLinkCreator({ onCreated }: PaymentLinkCreatorProps) {
               Create payment link
             </CardTitle>
             <CardDescription className="text-sm text-muted-foreground">
-              Generate a private link. Recipients pay without seeing your wallet
-              address.
+              Generate a private link. Recipients pay without seeing your wallet address.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-5 px-6 pb-8">

@@ -54,7 +54,7 @@ const FALLBACK: RelayerConfig = {
  */
 export function computeTotalLamportsForRecipient(
   amountToRecipientLamports: number,
-  config: RelayerConfig | null,
+  config: RelayerConfig | null
 ): { totalLamports: number; feeLamports: number } {
   const c = config ?? FALLBACK;
   const rentLamports = Math.floor(LAMPORTS_PER_SOL * c.withdraw_rent_fee);
@@ -65,9 +65,7 @@ export function computeTotalLamportsForRecipient(
       feeLamports: rentLamports,
     };
   }
-  const totalLamports = Math.floor(
-    (amountToRecipientLamports + rentLamports) / (1 - rate),
-  );
+  const totalLamports = Math.floor((amountToRecipientLamports + rentLamports) / (1 - rate));
   const feeLamports = totalLamports - amountToRecipientLamports;
   return { totalLamports, feeLamports: Math.max(0, feeLamports) };
 }
@@ -80,7 +78,7 @@ export function computeTotalBaseUnitsForRecipientSPL(
   amountToRecipientBaseUnits: number,
   unitsPerToken: number,
   tokenName: string,
-  config: RelayerConfig | null,
+  config: RelayerConfig | null
 ): { totalBaseUnits: number; feeBaseUnits: number } {
   const c = config ?? FALLBACK;
   const tokenRentFee = c.rent_fees[tokenName] ?? 0.001;
@@ -92,12 +90,8 @@ export function computeTotalBaseUnitsForRecipientSPL(
       feeBaseUnits: rentBaseUnits,
     };
   }
-  const totalBaseUnits = Math.floor(
-    (amountToRecipientBaseUnits + rentBaseUnits) / (1 - rate),
-  );
-  const feeBaseUnits = Math.floor(
-    totalBaseUnits * rate + unitsPerToken * tokenRentFee,
-  );
+  const totalBaseUnits = Math.floor((amountToRecipientBaseUnits + rentBaseUnits) / (1 - rate));
+  const feeBaseUnits = Math.floor(totalBaseUnits * rate + unitsPerToken * tokenRentFee);
   return { totalBaseUnits, feeBaseUnits };
 }
 

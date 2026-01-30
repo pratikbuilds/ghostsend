@@ -31,7 +31,7 @@ function StatusDot({ status }: { status: "connected" | "connecting" | "idle" }) 
         "inline-flex h-2 w-2 rounded-full",
         status === "connected" && "bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.7)]",
         status === "connecting" && "bg-amber-400 animate-pulse",
-        status === "idle" && "bg-muted-foreground/60",
+        status === "idle" && "bg-muted-foreground/60"
       )}
     />
   );
@@ -93,9 +93,7 @@ export function WalletConnectButton({
         </DropdownMenuTrigger>
         <DropdownMenuContent align={align}>
           <DropdownMenuLabel>Wallet</DropdownMenuLabel>
-          <DropdownMenuItem onSelect={handleCopy}>
-            Copy address
-          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={handleCopy}>Copy address</DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem variant="destructive" onSelect={handleDisconnect}>
             Disconnect

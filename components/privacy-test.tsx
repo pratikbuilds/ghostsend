@@ -18,9 +18,7 @@ import {
 } from "@/lib/privacy-cash";
 
 // Mainnet RPC endpoint
-const RPC_URL =
-  process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||
-  "https://api.mainnet-beta.solana.com";
+const RPC_URL = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com";
 
 type Status = "idle" | "loading" | "success" | "error";
 
@@ -43,12 +41,9 @@ export function PrivacyTest() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [verboseLogs, setVerboseLogs] = useState(false);
 
-  const addLog = useCallback(
-    (message: string, type: "info" | "success" | "error" = "info") => {
-      setLogs((prev) => [...prev, { timestamp: new Date(), message, type }]);
-    },
-    []
-  );
+  const addLog = useCallback((message: string, type: "info" | "success" | "error" = "info") => {
+    setLogs((prev) => [...prev, { timestamp: new Date(), message, type }]);
+  }, []);
 
   const clearLogs = useCallback(() => {
     setLogs([]);
@@ -60,8 +55,7 @@ export function PrivacyTest() {
       // Filter: skip debug unless verbose mode
       if (level === "debug" && !verboseLogs) return;
 
-      const type =
-        level === "error" ? "error" : level === "warn" ? "error" : "info";
+      const type = level === "error" ? "error" : level === "warn" ? "error" : "info";
       addLog(`[SDK] ${message}`, type);
     });
   }, [verboseLogs, addLog]);
@@ -101,12 +95,7 @@ export function PrivacyTest() {
       });
 
       setPrivateBalance(result.lamports);
-      addLog(
-        `Private balance: ${(result.lamports / LAMPORTS_PER_SOL).toFixed(
-          4
-        )} SOL`,
-        "success"
-      );
+      addLog(`Private balance: ${(result.lamports / LAMPORTS_PER_SOL).toFixed(4)} SOL`, "success");
       setStatus("success");
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -129,9 +118,7 @@ export function PrivacyTest() {
     }
 
     setStatus("loading");
-    addLog(
-      `Starting deposit of ${depositAmount} SOL (${lamports} lamports)...`
-    );
+    addLog(`Starting deposit of ${depositAmount} SOL (${lamports} lamports)...`);
 
     try {
       const walletAdapter: WalletAdapter = {
@@ -158,14 +145,7 @@ export function PrivacyTest() {
       addLog(`Deposit failed: ${message}`, "error");
       setStatus("error");
     }
-  }, [
-    wallet,
-    connection,
-    depositAmount,
-    addLog,
-    fetchPublicBalance,
-    fetchPrivateBalance,
-  ]);
+  }, [wallet, connection, depositAmount, addLog, fetchPublicBalance, fetchPrivateBalance]);
 
   // Withdraw SOL
   const handleWithdraw = useCallback(async () => {
@@ -181,9 +161,7 @@ export function PrivacyTest() {
     }
 
     setStatus("loading");
-    addLog(
-      `Starting withdrawal of ${withdrawAmount} SOL (${lamports} lamports)...`
-    );
+    addLog(`Starting withdrawal of ${withdrawAmount} SOL (${lamports} lamports)...`);
 
     try {
       const walletAdapter: WalletAdapter = {
@@ -199,19 +177,10 @@ export function PrivacyTest() {
         recipient: recipientAddress || undefined,
       });
 
-      addLog(
-        `Withdrawal ${result.isPartial ? "(partial)" : ""} successful!`,
-        "success"
-      );
+      addLog(`Withdrawal ${result.isPartial ? "(partial)" : ""} successful!`, "success");
       addLog(`TX: ${result.tx}`);
-      addLog(
-        `Received: ${(result.amount_in_lamports / LAMPORTS_PER_SOL).toFixed(
-          4
-        )} SOL`
-      );
-      addLog(
-        `Fee: ${(result.fee_in_lamports / LAMPORTS_PER_SOL).toFixed(4)} SOL`
-      );
+      addLog(`Received: ${(result.amount_in_lamports / LAMPORTS_PER_SOL).toFixed(4)} SOL`);
+      addLog(`Fee: ${(result.fee_in_lamports / LAMPORTS_PER_SOL).toFixed(4)} SOL`);
       addLog(`Explorer: https://explorer.solana.com/tx/${result.tx}`);
       setStatus("success");
 
@@ -282,11 +251,7 @@ export function PrivacyTest() {
                 <Button onClick={fetchPrivateBalance} disabled={isLoading}>
                   Refresh Private
                 </Button>
-                <Button
-                  variant="outline"
-                  onClick={handleClearSession}
-                  disabled={isLoading}
-                >
+                <Button variant="outline" onClick={handleClearSession} disabled={isLoading}>
                   Clear Session
                 </Button>
               </div>
@@ -356,8 +321,7 @@ export function PrivacyTest() {
               disabled={isLoading}
             />
             <p className="text-xs text-muted-foreground">
-              Withdraw from your private balance. A relayer fee will be
-              deducted.
+              Withdraw from your private balance. A relayer fee will be deducted.
             </p>
           </CardContent>
         </Card>
@@ -369,11 +333,7 @@ export function PrivacyTest() {
           <CardTitle>Activity Log</CardTitle>
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
-              <Switch
-                id="verbose-logs"
-                checked={verboseLogs}
-                onCheckedChange={setVerboseLogs}
-              />
+              <Switch id="verbose-logs" checked={verboseLogs} onCheckedChange={setVerboseLogs} />
               <Label htmlFor="verbose-logs" className="text-sm font-normal">
                 Verbose
               </Label>
@@ -395,8 +355,8 @@ export function PrivacyTest() {
                     log.type === "error"
                       ? "text-red-500"
                       : log.type === "success"
-                      ? "text-green-500"
-                      : "text-foreground"
+                        ? "text-green-500"
+                        : "text-foreground"
                   }`}
                 >
                   <span className="text-muted-foreground">

@@ -19,7 +19,7 @@ Required vars:
 
 - `PORT` (default 4000)
 - `SOLANA_RPC_URL`
- 
+
 Circuit files are loaded from the repo public directory:
 
 - `public/circuit2/transaction2.wasm`

@@ -12,9 +12,7 @@ export { tokens };
 export interface WalletAdapter {
   publicKey: PublicKey;
   signMessage: (message: Uint8Array) => Promise<Uint8Array>;
-  signTransaction: (
-    transaction: VersionedTransaction,
-  ) => Promise<VersionedTransaction>;
+  signTransaction: (transaction: VersionedTransaction) => Promise<VersionedTransaction>;
 }
 
 // Lazy-loaded modules (to avoid SSR issues with WASM)
@@ -39,13 +37,9 @@ async function getWasmFactory() {
 interface PrivacyCashSession {
   publicKey: PublicKey;
   signature: Uint8Array;
-  encryptionService: InstanceType<
-    Awaited<ReturnType<typeof getSDKUtils>>["EncryptionService"]
-  >;
+  encryptionService: InstanceType<Awaited<ReturnType<typeof getSDKUtils>>["EncryptionService"]>;
   lightWasm: Awaited<
-    ReturnType<
-      Awaited<ReturnType<typeof getWasmFactory>>["WasmFactory"]["getInstance"]
-    >
+    ReturnType<Awaited<ReturnType<typeof getWasmFactory>>["WasmFactory"]["getInstance"]>
   >;
 }
 
@@ -66,9 +60,7 @@ export async function getTokens(): Promise<typeof tokens> {
  * Initialize a Privacy Cash session by having the user sign a message.
  * This derives encryption keys from the signature.
  */
-export async function initializeSession(
-  wallet: WalletAdapter,
-): Promise<PrivacyCashSession> {
+export async function initializeSession(wallet: WalletAdapter): Promise<PrivacyCashSession> {
   if (!wallet.publicKey) {
     throw new Error("Wallet not connected");
   }
@@ -87,17 +79,10 @@ export async function initializeSession(
     // Handle wallets that return an object with signature property
     signature = (result as { signature?: Uint8Array }).signature ?? result;
   } catch (err) {
-    if (
-      err instanceof Error &&
-      err.message?.toLowerCase().includes("user rejected")
-    ) {
+    if (err instanceof Error && err.message?.toLowerCase().includes("user rejected")) {
       throw new Error("User rejected the signature request");
     }
-    throw new Error(
-      `Failed to sign message: ${
-        err instanceof Error ? err.message : String(err)
-      }`,
-    );
+    throw new Error(`Failed to sign message: ${err instanceof Error ? err.message : String(err)}`);
   }
 
   if (!(signature instanceof Uint8Array)) {
@@ -129,9 +114,7 @@ export async function initializeSession(
  * Sign the session message without creating a session.
  * Useful for sending the signature to a backend for server-side session init.
  */
-export async function signSessionMessage(
-  wallet: WalletAdapter,
-): Promise<Uint8Array> {
+export async function signSessionMessage(wallet: WalletAdapter): Promise<Uint8Array> {
   if (!wallet.publicKey) {
     throw new Error("Wallet not connected");
   }
@@ -143,17 +126,10 @@ export async function signSessionMessage(
     const result = await wallet.signMessage(encodedMessage);
     signature = (result as { signature?: Uint8Array }).signature ?? result;
   } catch (err) {
-    if (
-      err instanceof Error &&
-      err.message?.toLowerCase().includes("user rejected")
-    ) {
+    if (err instanceof Error && err.message?.toLowerCase().includes("user rejected")) {
       throw new Error("User rejected the signature request");
     }
-    throw new Error(
-      `Failed to sign message: ${
-        err instanceof Error ? err.message : String(err)
-      }`,
-    );
+    throw new Error(`Failed to sign message: ${err instanceof Error ? err.message : String(err)}`);
   }
 
   if (!(signature instanceof Uint8Array)) {
@@ -211,7 +187,7 @@ export async function depositSOL(
   params: OperationParams & {
     amount_in_lamports: number;
     referrer?: string;
-  },
+  }
 ): Promise<{ tx: string }> {
   const { connection, wallet, amount_in_lamports, referrer } = params;
 
@@ -241,7 +217,7 @@ export async function withdrawSOL(
     amount_in_lamports: number;
     recipient?: string;
     referrer?: string;
-  },
+  }
 ): Promise<{
   isPartial: boolean;
   tx: string;
@@ -249,15 +225,12 @@ export async function withdrawSOL(
   amount_in_lamports: number;
   fee_in_lamports: number;
 }> {
-  const { connection, wallet, amount_in_lamports, recipient, referrer } =
-    params;
+  const { connection, wallet, amount_in_lamports, recipient, referrer } = params;
 
   const sdk = await getSDKUtils();
   const session = await initializeSession(wallet);
 
-  const recipientPubkey = recipient
-    ? new PublicKey(recipient)
-    : session.publicKey;
+  const recipientPubkey = recipient ? new PublicKey(recipient) : session.publicKey;
 
   return sdk.withdraw({
     lightWasm: session.lightWasm,
@@ -281,10 +254,9 @@ export async function depositSPLToken(
     base_units?: number;
     amount?: number;
     referrer?: string;
-  },
+  }
 ): Promise<{ tx: string }> {
-  const { connection, wallet, mintAddress, base_units, amount, referrer } =
-    params;
+  const { connection, wallet, mintAddress, base_units, amount, referrer } = params;
 
   const sdk = await getSDKUtils();
   const session = await initializeSession(wallet);
@@ -316,7 +288,7 @@ export async function withdrawSPLToken(
     amount?: number;
     recipient?: string;
     referrer?: string;
-  },
+  }
 ): Promise<{
   isPartial: boolean;
   tx: string;
@@ -324,22 +296,12 @@ export async function withdrawSPLToken(
   base_units: number;
   fee_base_units: number;
 }> {
-  const {
-    connection,
-    wallet,
-    mintAddress,
-    base_units,
-    amount,
-    recipient,
-    referrer,
-  } = params;
+  const { connection, wallet, mintAddress, base_units, amount, recipient, referrer } = params;
 
   const sdk = await getSDKUtils();
   const session = await initializeSession(wallet);
 
-  const recipientPubkey = recipient
-    ? new PublicKey(recipient)
-    : session.publicKey;
+  const recipientPubkey = recipient ? new PublicKey(recipient) : session.publicKey;
 
   return sdk.withdrawSPL({
     lightWasm: session.lightWasm,
@@ -362,7 +324,7 @@ export async function withdrawSPLToken(
 export async function getPrivateSOLBalance(
   params: OperationParams & {
     abortSignal?: AbortSignal;
-  },
+  }
 ): Promise<{ lamports: number }> {
   const { connection, wallet, abortSignal } = params;
 
@@ -387,7 +349,7 @@ export async function getPrivateSPLBalance(
   params: OperationParams & {
     mintAddress: PublicKey | string;
     abortSignal?: AbortSignal;
-  },
+  }
 ): Promise<{
   base_units: number;
   amount: number;

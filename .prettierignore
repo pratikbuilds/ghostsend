@@ -1,0 +1,9 @@
+node_modules
+.next
+out
+build
+dist
+backend/dist
+*.min.js
+pnpm-lock.yaml
+public/circuit2

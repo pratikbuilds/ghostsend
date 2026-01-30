@@ -9,7 +9,11 @@
     "dev": "pnpm exec next dev",
     "build": "next build --webpack",
     "start": "next start",
-    "lint": "eslint",
+    "lint": "eslint . backend",
+    "lint:fix": "eslint . backend --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check": "pnpm format:check && pnpm lint",
     "postinstall": "cp node_modules/@lightprotocol/hasher.rs/dist/hasher_wasm_simd_bg.wasm node_modules/@lightprotocol/hasher.rs/dist/browser-fat/es/ && cp node_modules/@lightprotocol/hasher.rs/dist/light_wasm_hasher_bg.wasm node_modules/@lightprotocol/hasher.rs/dist/browser-fat/es/ && mkdir -p public/circuit2 && cp node_modules/privacycash/circuit2/* public/circuit2/",
     "backend:dev": "pnpm -C backend dev",
     "backend:build": "pnpm -C backend build",
@@ -47,6 +51,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.1.2",
+    "prettier": "^3",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

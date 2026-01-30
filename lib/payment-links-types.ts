@@ -6,30 +6,30 @@
 
 export type TokenMint = string;
 
-export type AmountType = 'fixed' | 'flexible';
+export type AmountType = "fixed" | "flexible";
 
-export type PaymentLinkStatus = 'active' | 'completed' | 'disabled';
+export type PaymentLinkStatus = "active" | "completed" | "disabled";
 
-export type PaymentRecordStatus = 'completed';
+export type PaymentRecordStatus = "completed";
 
 /**
  * Payment link metadata stored on backend
  */
 export interface PaymentLinkMetadata {
   paymentId: string;
-  recipientAddress: string;       // Public key of recipient (private, not exposed to sender)
+  recipientAddress: string; // Public key of recipient (private, not exposed to sender)
   tokenMint: TokenMint;
   amountType: AmountType;
-  fixedAmount?: number;            // In lamports for SOL, base_units for SPL tokens
-  minAmount?: number;              // For flexible amounts
-  maxAmount?: number;              // For flexible amounts
+  fixedAmount?: number; // In lamports for SOL, base_units for SPL tokens
+  minAmount?: number; // For flexible amounts
+  maxAmount?: number; // For flexible amounts
   reusable: boolean;
-  label?: string;                  // Optional label/title
-  message?: string;                // Optional message from recipient
-  createdAt: number;               // Unix timestamp
+  label?: string; // Optional label/title
+  message?: string; // Optional message from recipient
+  createdAt: number; // Unix timestamp
   status: PaymentLinkStatus;
   usageCount: number;
-  maxUsageCount?: number;          // For reusable links with usage limit
+  maxUsageCount?: number; // For reusable links with usage limit
 }
 
 /**

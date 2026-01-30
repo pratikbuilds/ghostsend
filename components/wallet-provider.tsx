@@ -13,8 +13,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         env: "mainnet-beta",
         metadata: {
           name: "GhostSend",
-          description:
-            "GhostSend allows you to accept payments privately and anonymously.",
+          description: "GhostSend allows you to accept payments privately and anonymously.",
           url: "https://ghostsend.xyz",
           iconUrls: ["/new_logo.png"],
         },

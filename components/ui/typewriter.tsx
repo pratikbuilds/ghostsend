@@ -27,11 +27,14 @@ export function Typewriter({
 
   useEffect(() => {
     if (!safeText) return;
-    const timeout = setTimeout(() => {
-      if (charIndex < safeText.length) {
-        setCharIndex((prev) => prev + 1);
-      }
-    }, delay > 0 && charIndex === 0 ? delay * 1000 : speedMs);
+    const timeout = setTimeout(
+      () => {
+        if (charIndex < safeText.length) {
+          setCharIndex((prev) => prev + 1);
+        }
+      },
+      delay > 0 && charIndex === 0 ? delay * 1000 : speedMs
+    );
 
     return () => clearTimeout(timeout);
   }, [charIndex, delay, safeText, speedMs]);

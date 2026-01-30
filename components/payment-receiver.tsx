@@ -4,13 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useWallet } from "@jup-ag/wallet-adapter";
 import { Connection, PublicKey, VersionedTransaction } from "@solana/web3.js";
 import { getAssociatedTokenAddress } from "@solana/spl-token";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { WalletConnectButton } from "@/components/wallet-button";
 import { Input } from "@/components/ui/input";
@@ -53,9 +47,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 
-const RPC_URL =
-  process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||
-  "https://api.mainnet-beta.solana.com";
+const RPC_URL = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com";
 
 interface PaymentReceiverProps {
   paymentId: string;
@@ -63,36 +55,21 @@ interface PaymentReceiverProps {
   onSigningChange?: (isSigning: boolean) => void;
 }
 
-type PaymentStatus =
-  | "idle"
-  | "checking"
-  | "depositing"
-  | "paying"
-  | "success"
-  | "error";
+type PaymentStatus = "idle" | "checking" | "depositing" | "paying" | "success" | "error";
 
-export function PaymentReceiver({
-  paymentId,
-  onSigningChange,
-}: PaymentReceiverProps) {
+export function PaymentReceiver({ paymentId, onSigningChange }: PaymentReceiverProps) {
   const { publicKey, signMessage, signTransaction } = useWallet();
   const [connection] = useState(() => new Connection(RPC_URL, "confirmed"));
 
-  const [paymentLink, setPaymentLink] = useState<PaymentLinkPublicInfo | null>(
-    null
-  );
+  const [paymentLink, setPaymentLink] = useState<PaymentLinkPublicInfo | null>(null);
   const [loadingLink, setLoadingLink] = useState(true);
   const [linkError, setLinkError] = useState<string | null>(null);
 
   const [amount, setAmount] = useState("");
   const [status, setStatus] = useState<PaymentStatus>("idle");
   const [error, setError] = useState<string | null>(null);
-  const [publicBalanceBaseUnits, setPublicBalanceBaseUnits] = useState<
-    number | null
-  >(null);
-  const [privateBalanceBaseUnits, setPrivateBalanceBaseUnits] = useState<
-    number | null
-  >(null);
+  const [publicBalanceBaseUnits, setPublicBalanceBaseUnits] = useState<number | null>(null);
+  const [privateBalanceBaseUnits, setPrivateBalanceBaseUnits] = useState<number | null>(null);
   const [balancesChecked, setBalancesChecked] = useState(false);
   const [logQueue, setLogQueue] = useState<string[]>([]);
   const [displayLogs, setDisplayLogs] = useState<string[]>([]);
@@ -102,9 +79,7 @@ export function PaymentReceiver({
     useState<Awaited<ReturnType<typeof getRelayerConfig>>>(null);
   const lastLogRef = useRef<string | null>(null);
   const activityLogsRef = useRef<HTMLDivElement>(null);
-  const activityExitTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null
-  );
+  const activityExitTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const token = useMemo(
     () => (paymentLink ? getTokenByMint(paymentLink.tokenMint) : undefined),
@@ -128,9 +103,7 @@ export function PaymentReceiver({
           setAmount("");
         }
       } catch (err) {
-        setLinkError(
-          err instanceof Error ? err.message : "Failed to load payment link"
-        );
+        setLinkError(err instanceof Error ? err.message : "Failed to load payment link");
       } finally {
         setLoadingLink(false);
       }
@@ -147,8 +120,7 @@ export function PaymentReceiver({
 
   useEffect(() => {
     setLogger((level, message) => {
-      const prefix =
-        level === "error" ? "Error" : level === "warn" ? "Warn" : "Info";
+      const prefix = level === "error" ? "Error" : level === "warn" ? "Warn" : "Info";
       const nextMessage = `${prefix}: ${message}`;
       if (lastLogRef.current === nextMessage) return;
       lastLogRef.current = nextMessage;
@@ -206,8 +178,7 @@ export function PaymentReceiver({
         : await getPublicTokenBalance(connection, publicKey, token.mint);
 
       const privateBaseUnits = isSolToken
-        ? (await getPrivateSOLBalance({ connection, wallet: walletAdapter }))
-            .lamports
+        ? (await getPrivateSOLBalance({ connection, wallet: walletAdapter })).lamports
         : (
             await getPrivateSPLBalance({
               connection,
@@ -229,8 +200,7 @@ export function PaymentReceiver({
   }, [connection, getWalletAdapter, isSolToken, publicKey, token]);
 
   useEffect(() => {
-    if (!publicKey || !token || balancesChecked || status === "checking")
-      return;
+    if (!publicKey || !token || balancesChecked || status === "checking") return;
     fetchBalances();
   }, [balancesChecked, fetchBalances, publicKey, status, token]);
 
@@ -269,13 +239,12 @@ export function PaymentReceiver({
         totalFromPrivateBaseUnits: totalLamports,
       };
     }
-    const { totalBaseUnits, feeBaseUnits } =
-      computeTotalBaseUnitsForRecipientSPL(
-        amountBaseUnits,
-        token.unitsPerToken,
-        token.name,
-        relayerConfig
-      );
+    const { totalBaseUnits, feeBaseUnits } = computeTotalBaseUnitsForRecipientSPL(
+      amountBaseUnits,
+      token.unitsPerToken,
+      token.name,
+      relayerConfig
+    );
     return {
       toRecipientBaseUnits: amountBaseUnits,
       feeBaseUnits,
@@ -283,19 +252,16 @@ export function PaymentReceiver({
     };
   }, [amountBaseUnits, isSolToken, isValidAmount, relayerConfig, token]);
 
-  const requiredPrivateBaseUnits =
-    payFeeBreakdown?.totalFromPrivateBaseUnits ?? 0;
+  const requiredPrivateBaseUnits = payFeeBreakdown?.totalFromPrivateBaseUnits ?? 0;
 
   const shortfallBaseUnits =
     privateBalanceBaseUnits !== null
       ? Math.max(0, requiredPrivateBaseUnits - privateBalanceBaseUnits)
       : null;
 
-  const isBusy =
-    status === "checking" || status === "depositing" || status === "paying";
+  const isBusy = status === "checking" || status === "depositing" || status === "paying";
   const hasSufficientBalance =
-    privateBalanceBaseUnits !== null &&
-    privateBalanceBaseUnits >= requiredPrivateBaseUnits;
+    privateBalanceBaseUnits !== null && privateBalanceBaseUnits >= requiredPrivateBaseUnits;
   const needsDeposit = shortfallBaseUnits !== null && shortfallBaseUnits > 0;
 
   useEffect(() => {
@@ -324,8 +290,7 @@ export function PaymentReceiver({
     });
   }, [activityLogs]);
 
-  const showActivityPanel =
-    (isBusy || activityExiting) && activityLogs.length > 0;
+  const showActivityPanel = (isBusy || activityExiting) && activityLogs.length > 0;
   useEffect(() => {
     if (isBusy) {
       if (activityExitTimeoutRef.current) {
@@ -344,8 +309,7 @@ export function PaymentReceiver({
       }, 280);
     }
     return () => {
-      if (activityExitTimeoutRef.current)
-        clearTimeout(activityExitTimeoutRef.current);
+      if (activityExitTimeoutRef.current) clearTimeout(activityExitTimeoutRef.current);
     };
   }, [isBusy, activityLogs.length, activityExiting]);
 
@@ -399,20 +363,18 @@ export function PaymentReceiver({
   const buttonLabel = isChecking
     ? "Checking balance…"
     : isDepositing
-    ? "Depositing…"
-    : isPaying
-    ? "Paying…"
-    : isError
-    ? "Try again"
-    : needsDeposit
-    ? `Deposit ${
-        token && shortfallBaseUnits !== null
-          ? `${formatAmount(shortfallBaseUnits)} ${token.label}`
-          : "---"
-      }`
-    : `Pay ${
-        token ? `${formatAmount(amountBaseUnits)} ${token.label}` : "---"
-      }`;
+      ? "Depositing…"
+      : isPaying
+        ? "Paying…"
+        : isError
+          ? "Try again"
+          : needsDeposit
+            ? `Deposit ${
+                token && shortfallBaseUnits !== null
+                  ? `${formatAmount(shortfallBaseUnits)} ${token.label}`
+                  : "---"
+              }`
+            : `Pay ${token ? `${formatAmount(amountBaseUnits)} ${token.label}` : "---"}`;
 
   const handlePay = useCallback(async () => {
     if (!paymentLink) return;
@@ -429,22 +391,17 @@ export function PaymentReceiver({
 
     try {
       const walletAdapter = getWalletAdapter();
-      const recipientResult = await PaymentLinksAPI.getRecipient(
-        paymentId,
-        amountBaseUnits
-      );
+      const recipientResult = await PaymentLinksAPI.getRecipient(paymentId, amountBaseUnits);
 
       if (!recipientResult.success || !recipientResult.data) {
         throw new Error(recipientResult.error || "Failed to get recipient");
       }
 
-      const totalToDeduct =
-        payFeeBreakdown?.totalFromPrivateBaseUnits ?? amountBaseUnits;
+      const totalToDeduct = payFeeBreakdown?.totalFromPrivateBaseUnits ?? amountBaseUnits;
 
       const withdrawResult = await (async () => {
         const existingSignature = getSessionSignature(walletAdapter.publicKey);
-        const signature =
-          existingSignature ?? (await signSessionMessage(walletAdapter));
+        const signature = existingSignature ?? (await signSessionMessage(walletAdapter));
         const signatureBase64 = toBase64(signature);
 
         const withdrawApiResult = isSolToken
@@ -504,14 +461,7 @@ export function PaymentReceiver({
       return;
     }
     await handlePay();
-  }, [
-    handleDeposit,
-    handlePay,
-    isValidAmount,
-    needsDeposit,
-    publicKey,
-    shortfallBaseUnits,
-  ]);
+  }, [handleDeposit, handlePay, isValidAmount, needsDeposit, publicKey, shortfallBaseUnits]);
 
   const toBase64 = (bytes: Uint8Array) => {
     let binary = "";
@@ -530,9 +480,7 @@ export function PaymentReceiver({
         <CardContent className="py-12">
           <div className="flex flex-col items-center gap-4">
             <div className="size-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-            <p className="text-sm text-muted-foreground">
-              Loading payment request...
-            </p>
+            <p className="text-sm text-muted-foreground">Loading payment request...</p>
           </div>
         </CardContent>
       </Card>
@@ -596,9 +544,7 @@ export function PaymentReceiver({
               Paid
             </p>
             <p className="mt-1 text-xl font-bold tabular-nums tracking-tight text-foreground sm:text-2xl">
-              {isValidAmount && token
-                ? `${formatAmount(amountBaseUnits)} ${token.label}`
-                : amount}{" "}
+              {isValidAmount && token ? `${formatAmount(amountBaseUnits)} ${token.label}` : amount}{" "}
               paid privately
             </p>
             <p className="mt-2 text-xs text-muted-foreground">
@@ -637,9 +583,7 @@ export function PaymentReceiver({
                   Message
                 </span>
                 <span className="mx-1 text-muted-foreground/50">•</span>
-                <span className="text-foreground/90">
-                  {paymentLink.message}
-                </span>
+                <span className="text-foreground/90">{paymentLink.message}</span>
               </p>
             )}
           </div>
@@ -653,9 +597,7 @@ export function PaymentReceiver({
                   aria-hidden
                 />
               ) : null}
-              <span className="text-xs font-medium text-foreground">
-                {token.label}
-              </span>
+              <span className="text-xs font-medium text-foreground">{token.label}</span>
             </div>
           )}
         </div>
@@ -663,9 +605,7 @@ export function PaymentReceiver({
           <div
             className={cn(
               "flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors",
-              stepConnect
-                ? "bg-primary/15 text-primary"
-                : "bg-muted text-muted-foreground"
+              stepConnect ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
             )}
           >
             <Wallet className="size-3.5" aria-hidden />
@@ -678,8 +618,8 @@ export function PaymentReceiver({
               stepSign
                 ? "bg-primary/15 text-primary"
                 : stepPay
-                ? "bg-muted text-muted-foreground"
-                : "bg-muted/60 text-muted-foreground"
+                  ? "bg-muted text-muted-foreground"
+                  : "bg-muted/60 text-muted-foreground"
             )}
           >
             <FileSignature className="size-3.5" aria-hidden />
@@ -689,9 +629,7 @@ export function PaymentReceiver({
           <div
             className={cn(
               "flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors",
-              stepPay
-                ? "bg-primary/15 text-primary"
-                : "bg-muted/60 text-muted-foreground"
+              stepPay ? "bg-primary/15 text-primary" : "bg-muted/60 text-muted-foreground"
             )}
           >
             <Send className="size-3.5" aria-hidden />
@@ -712,8 +650,8 @@ export function PaymentReceiver({
                 paymentLink.amountType === "fixed"
                   ? undefined
                   : token
-                  ? getTokenStep(token)
-                  : "0.001"
+                    ? getTokenStep(token)
+                    : "0.001"
               }
               value={amount}
               readOnly={paymentLink.amountType === "fixed"}
@@ -729,9 +667,7 @@ export function PaymentReceiver({
                   aria-hidden
                 />
               ) : null}
-              <span className="text-xs font-semibold tabular-nums">
-                {tokenLabel}
-              </span>
+              <span className="text-xs font-semibold tabular-nums">{tokenLabel}</span>
             </div>
           </div>
         </div>
@@ -806,27 +742,16 @@ export function PaymentReceiver({
           {stepSign && (
             <div className="rounded-xl border border-primary/25 bg-primary/5 p-3 space-y-2">
               <div className="flex items-center gap-3">
-                <div
-                  className="rounded-full bg-primary/15 p-2 shrink-0"
-                  aria-hidden
-                >
+                <div className="rounded-full bg-primary/15 p-2 shrink-0" aria-hidden>
                   {isBusy ? (
-                    <Loader2
-                      className="size-5 text-primary animate-spin"
-                      aria-hidden
-                    />
+                    <Loader2 className="size-5 text-primary animate-spin" aria-hidden />
                   ) : (
-                    <FileSignature
-                      className="size-5 text-primary"
-                      aria-hidden
-                    />
+                    <FileSignature className="size-5 text-primary" aria-hidden />
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-foreground">
-                    {isBusy
-                      ? "Check your wallet"
-                      : "Sign to reveal private balance"}
+                    {isBusy ? "Check your wallet" : "Sign to reveal private balance"}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     Sign in wallet — no funds sent, free.
@@ -841,19 +766,13 @@ export function PaymentReceiver({
               {isBusy && !showActivityPanel && (
                 <p className="text-xs text-primary pl-11">
                   <Typewriter
-                    text={
-                      displayLogs[displayLogs.length - 1] ??
-                      "Requesting signature…"
-                    }
+                    text={displayLogs[displayLogs.length - 1] ?? "Requesting signature…"}
                     speedMs={90}
                   />
                 </p>
               )}
               <div className="flex items-center gap-2 rounded-lg bg-background/50 px-3 py-2">
-                <ShieldCheck
-                  className="size-4 text-primary shrink-0"
-                  aria-hidden
-                />
+                <ShieldCheck className="size-4 text-primary shrink-0" aria-hidden />
                 <span className="text-xs text-muted-foreground">
                   Signing does not send any transaction.
                 </span>
@@ -920,9 +839,7 @@ export function PaymentReceiver({
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">To recipient</span>
                   <span className="font-semibold tabular-nums">
-                    {token
-                      ? `${formatAmount(amountBaseUnits)} ${token.label}`
-                      : "---"}
+                    {token ? `${formatAmount(amountBaseUnits)} ${token.label}` : "---"}
                   </span>
                 </div>
                 {payFeeBreakdown && payFeeBreakdown.feeBaseUnits > 0 && (
@@ -930,39 +847,22 @@ export function PaymentReceiver({
                     <span className="text-muted-foreground">Relayer fee</span>
                     <span className="tabular-nums">
                       {token
-                        ? `${formatAmount(payFeeBreakdown.feeBaseUnits)} ${
-                            token.label
-                          }`
+                        ? `${formatAmount(payFeeBreakdown.feeBaseUnits)} ${token.label}`
                         : "---"}
                     </span>
                   </div>
                 )}
                 <div className="flex items-center justify-between border-t border-border/50 pt-2">
-                  <span className="text-muted-foreground font-medium">
-                    Total from private
-                  </span>
+                  <span className="text-muted-foreground font-medium">Total from private</span>
                   <span className="font-semibold tabular-nums">
-                    {token
-                      ? `${formatAmount(requiredPrivateBaseUnits)} ${
-                          token.label
-                        }`
-                      : "---"}
+                    {token ? `${formatAmount(requiredPrivateBaseUnits)} ${token.label}` : "---"}
                   </span>
                 </div>
                 {needsDeposit && shortfallBaseUnits !== null && (
                   <div className="flex items-center justify-between pt-1">
-                    <span className="text-muted-foreground">
-                      Deposit (no fee)
-                    </span>
-                    <span
-                      className={cn(
-                        "font-semibold tabular-nums",
-                        "text-amber-500"
-                      )}
-                    >
-                      {token
-                        ? `${formatAmount(shortfallBaseUnits)} ${token.label}`
-                        : "—"}
+                    <span className="text-muted-foreground">Deposit (no fee)</span>
+                    <span className={cn("font-semibold tabular-nums", "text-amber-500")}>
+                      {token ? `${formatAmount(shortfallBaseUnits)} ${token.label}` : "—"}
                     </span>
                   </div>
                 )}
@@ -975,9 +875,7 @@ export function PaymentReceiver({
                 disabled={
                   (isBusy && !isError) ||
                   !isValidAmount ||
-                  (needsDeposit
-                    ? shortfallBaseUnits === null
-                    : !hasSufficientBalance)
+                  (needsDeposit ? shortfallBaseUnits === null : !hasSufficientBalance)
                 }
                 variant={isError ? "destructive" : "default"}
                 className={cn(
@@ -986,10 +884,7 @@ export function PaymentReceiver({
                 )}
               >
                 {isBusy && !isError ? (
-                  <Loader2
-                    className="size-5 shrink-0 animate-spin"
-                    aria-hidden
-                  />
+                  <Loader2 className="size-5 shrink-0 animate-spin" aria-hidden />
                 ) : token?.icon && !isError ? (
                   <span
                     className="size-5 rounded-full bg-cover bg-center bg-no-repeat shrink-0"

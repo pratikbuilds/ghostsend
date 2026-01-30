@@ -10,11 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import {
-  getTokenByMint,
-  getTokenStep,
-  tokenRegistry,
-} from "@/lib/token-registry";
+import { getTokenByMint, getTokenStep, tokenRegistry } from "@/lib/token-registry";
 import type { TokenMint } from "@/lib/payment-links-types";
 
 interface AmountTokenInputProps {
@@ -58,10 +54,7 @@ export function AmountTokenInput({
           className="flex-1 h-full text-lg font-medium bg-transparent px-4 py-0 outline-none placeholder:text-muted-foreground [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [-moz-appearance:textfield]"
           aria-label="Amount"
         />
-        <Select
-          value={token}
-          onValueChange={(value) => onTokenChange(value as TokenMint)}
-        >
+        <Select value={token} onValueChange={(value) => onTokenChange(value as TokenMint)}>
           <SelectTrigger
             className="h-full! min-w-[140px] border-0! rounded-none bg-transparent font-medium px-4 py-0! shadow-none hover:bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 m-0 shrink-0"
             aria-label="Token"
@@ -75,20 +68,14 @@ export function AmountTokenInput({
                     className="h-6 w-6 rounded-full shrink-0"
                     loading="lazy"
                   />
-                  <span className="uppercase  text-sm font-semibold">
-                    {selectedToken.label}
-                  </span>
+                  <span className="uppercase  text-sm font-semibold">{selectedToken.label}</span>
                 </span>
               ) : null}
             </SelectValue>
           </SelectTrigger>
           <SelectContent>
             {tokenRegistry.map((option) => (
-              <SelectItem
-                key={option.mint}
-                value={option.mint}
-                textValue={option.label}
-              >
+              <SelectItem key={option.mint} value={option.mint} textValue={option.label}>
                 <span className="flex items-center gap-2.5">
                   <img
                     src={option.icon}

@@ -25,7 +25,7 @@ export default function Page() {
           opacity: 0.6,
         }}
       />
-      
+
       {/* Logo in top-left corner */}
       <Link href="/" className="absolute top-6 left-6 z-30 block">
         <Image

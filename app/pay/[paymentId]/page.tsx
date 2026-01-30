@@ -5,11 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { PaymentReceiver } from "@/components/payment-receiver";
 
-export default function PaymentPage({
-  params,
-}: {
-  params: Promise<{ paymentId: string }>;
-}) {
+export default function PaymentPage({ params }: { params: Promise<{ paymentId: string }> }) {
   const { paymentId } = use(params);
   const [hideIntro, setHideIntro] = useState(false);
 
@@ -60,10 +56,7 @@ export default function PaymentPage({
             </div>
           )}
           <div className="min-h-0 w-full flex justify-center overflow-hidden">
-            <PaymentReceiver
-              paymentId={paymentId}
-              onSigningChange={setHideIntro}
-            />
+            <PaymentReceiver paymentId={paymentId} onSigningChange={setHideIntro} />
           </div>
         </div>
       </main>

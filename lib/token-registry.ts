@@ -62,8 +62,7 @@ export const tokenRegistry: TokenInfo[] = sdkTokens.map((token) => {
     icon: "",
   };
 
-  const mint =
-    typeof token.pubkey === "string" ? token.pubkey : token.pubkey.toBase58();
+  const mint = typeof token.pubkey === "string" ? token.pubkey : token.pubkey.toBase58();
 
   return {
     name: token.name,
@@ -93,11 +92,7 @@ export function isSolMint(mint: string) {
   return Boolean(SOL_MINT) && mint === SOL_MINT;
 }
 
-export function formatTokenAmount(
-  baseUnits: number,
-  token: TokenInfo,
-  maximumFractionDigits = 6,
-) {
+export function formatTokenAmount(baseUnits: number, token: TokenInfo, maximumFractionDigits = 6) {
   const value = baseUnits / token.unitsPerToken;
   return new Intl.NumberFormat("en-US", {
     minimumFractionDigits: 0,

@@ -14,13 +14,13 @@ import type {
   PaymentLinksListResponse,
   PaymentHistoryResponse,
   DeletePaymentLinkResponse,
-} from './payment-links-types';
+} from "./payment-links-types";
 
 // Get the backend URL from environment variable or default to localhost
 const BACKEND_URL =
-  typeof window !== 'undefined'
-    ? process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000'
-    : process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
+  typeof window !== "undefined"
+    ? process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:4000"
+    : process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:4000";
 
 type WithdrawRequest = {
   amountLamports: number;
@@ -65,7 +65,7 @@ async function fetchAPI<T>(
     const response = await fetch(url, {
       ...options,
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
         ...options.headers,
       },
     });
@@ -87,7 +87,7 @@ async function fetchAPI<T>(
     const message = error instanceof Error ? error.message : String(error);
     return {
       success: false,
-      error: message || 'Network error',
+      error: message || "Network error",
     };
   }
 }
@@ -102,8 +102,8 @@ export const PaymentLinksAPI = {
   async createPaymentLink(
     request: CreatePaymentLinkRequest
   ): Promise<{ success: boolean; data?: CreatePaymentLinkResponse; error?: string }> {
-    return fetchAPI<CreatePaymentLinkResponse>('/payment-links', {
-      method: 'POST',
+    return fetchAPI<CreatePaymentLinkResponse>("/payment-links", {
+      method: "POST",
       body: JSON.stringify(request),
     });
   },
@@ -111,15 +111,13 @@ export const PaymentLinksAPI = {
   /**
    * Get payment link public info (no recipient address)
    */
-  async getPaymentLink(
-    paymentId: string
-  ): Promise<{
+  async getPaymentLink(paymentId: string): Promise<{
     success: boolean;
     data?: { success: boolean; paymentLink: PaymentLinkPublicInfo };
     error?: string;
   }> {
     return fetchAPI(`/payment-links/${paymentId}`, {
-      method: 'GET',
+      method: "GET",
     });
   },
 
@@ -135,7 +133,7 @@ export const PaymentLinksAPI = {
     error?: string;
   }> {
     return fetchAPI(`/payment-links/${paymentId}/recipient`, {
-      method: 'POST',
+      method: "POST",
       body: JSON.stringify({ amount }),
     });
   },
@@ -152,7 +150,7 @@ export const PaymentLinksAPI = {
     error?: string;
   }> {
     return fetchAPI(`/payment-links/${paymentId}/complete`, {
-      method: 'POST',
+      method: "POST",
       body: JSON.stringify(request),
     });
   },
@@ -165,7 +163,7 @@ export const PaymentLinksAPI = {
   ): Promise<{ success: boolean; data?: PaymentLinksListResponse; error?: string }> {
     const query = encodeURIComponent(recipientAddress);
     return fetchAPI(`/payment-links?recipientAddress=${query}`, {
-      method: 'GET',
+      method: "GET",
     });
   },
 
@@ -177,7 +175,7 @@ export const PaymentLinksAPI = {
   ): Promise<{ success: boolean; data?: PaymentHistoryResponse; error?: string }> {
     const query = encodeURIComponent(recipientAddress);
     return fetchAPI(`/payment-links/history?recipientAddress=${query}`, {
-      method: 'GET',
+      method: "GET",
     });
   },
 
@@ -189,7 +187,7 @@ export const PaymentLinksAPI = {
     recipientAddress: string
   ): Promise<{ success: boolean; data?: DeletePaymentLinkResponse; error?: string }> {
     return fetchAPI(`/payment-links/${paymentId}`, {
-      method: 'DELETE',
+      method: "DELETE",
       body: JSON.stringify({ recipientAddress }),
     });
   },
@@ -202,15 +200,13 @@ export const PrivacyCashAPI = {
   /**
    * Execute a private withdrawal
    */
-  async withdraw(
-    request: WithdrawRequest
-  ): Promise<{
+  async withdraw(request: WithdrawRequest): Promise<{
     success: boolean;
     data?: { success: boolean; result: WithdrawResult };
     error?: string;
   }> {
     return fetchAPI(`/withdraw`, {
-      method: 'POST',
+      method: "POST",
       body: JSON.stringify(request),
     });
   },
@@ -218,15 +214,13 @@ export const PrivacyCashAPI = {
   /**
    * Execute a private SPL withdrawal
    */
-  async withdrawSpl(
-    request: WithdrawSplRequest
-  ): Promise<{
+  async withdrawSpl(request: WithdrawSplRequest): Promise<{
     success: boolean;
     data?: { success: boolean; result: WithdrawSplResult };
     error?: string;
   }> {
     return fetchAPI(`/withdraw-spl`, {
-      method: 'POST',
+      method: "POST",
       body: JSON.stringify(request),
     });
   },
