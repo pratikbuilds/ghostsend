@@ -73,19 +73,12 @@ function findSharedCircuitBase(): string | null {
   return null;
 }
 
-const BACKEND_NODE_MODULES_CIRCUIT = path.resolve(
-  __dirname,
-  "..",
-  "node_modules",
-  "privacycash",
-  "circuit2",
-  "transaction2",
-);
 const KEY_BASE_PATH = (() => {
-  if (process.env.KEY_BASE_PATH) return process.env.KEY_BASE_PATH;
   const shared = findSharedCircuitBase();
   if (shared) return shared;
-  return BACKEND_NODE_MODULES_CIRCUIT;
+  throw new Error(
+    "Circuit files not found. Expected public/circuit2/transaction2.{wasm,zkey} in the repo root.",
+  );
 })();
 const PORT = Number(process.env.PORT || 4000);
 

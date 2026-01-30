@@ -79,7 +79,7 @@ export function PaymentReceiver({
   const [connection] = useState(() => new Connection(RPC_URL, "confirmed"));
 
   const [paymentLink, setPaymentLink] = useState<PaymentLinkPublicInfo | null>(
-    null,
+    null
   );
   const [loadingLink, setLoadingLink] = useState(true);
   const [linkError, setLinkError] = useState<string | null>(null);
@@ -103,12 +103,12 @@ export function PaymentReceiver({
   const lastLogRef = useRef<string | null>(null);
   const activityLogsRef = useRef<HTMLDivElement>(null);
   const activityExitTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
+    null
   );
 
   const token = useMemo(
     () => (paymentLink ? getTokenByMint(paymentLink.tokenMint) : undefined),
-    [paymentLink],
+    [paymentLink]
   );
 
   const isSolToken = token ? isSolMint(token.mint) : false;
@@ -129,7 +129,7 @@ export function PaymentReceiver({
         }
       } catch (err) {
         setLinkError(
-          err instanceof Error ? err.message : "Failed to load payment link",
+          err instanceof Error ? err.message : "Failed to load payment link"
         );
       } finally {
         setLoadingLink(false);
@@ -188,7 +188,7 @@ export function PaymentReceiver({
         throw err;
       }
     },
-    [],
+    []
   );
 
   const fetchBalances = useCallback(async () => {
@@ -243,7 +243,7 @@ export function PaymentReceiver({
       if (!token) return "---";
       return formatTokenAmount(baseUnits, token);
     },
-    [token],
+    [token]
   );
 
   const tokenLabel = token?.label ?? "Token";
@@ -261,7 +261,7 @@ export function PaymentReceiver({
     if (isSolToken) {
       const { totalLamports, feeLamports } = computeTotalLamportsForRecipient(
         amountBaseUnits,
-        relayerConfig,
+        relayerConfig
       );
       return {
         toRecipientBaseUnits: amountBaseUnits,
@@ -274,7 +274,7 @@ export function PaymentReceiver({
         amountBaseUnits,
         token.unitsPerToken,
         token.name,
-        relayerConfig,
+        relayerConfig
       );
     return {
       toRecipientBaseUnits: amountBaseUnits,
@@ -389,7 +389,7 @@ export function PaymentReceiver({
         setStatus("error");
       }
     },
-    [connection, fetchBalances, getWalletAdapter, isSolToken, publicKey, token],
+    [connection, fetchBalances, getWalletAdapter, isSolToken, publicKey, token]
   );
 
   const isDepositing = status === "depositing";
@@ -399,14 +399,20 @@ export function PaymentReceiver({
   const buttonLabel = isChecking
     ? "Checking balance…"
     : isDepositing
-      ? "Depositing…"
-      : isPaying
-        ? "Paying…"
-        : isError
-          ? "Try again"
-          : needsDeposit
-            ? `Deposit ${token && shortfallBaseUnits !== null ? `${formatAmount(shortfallBaseUnits)} ${token.label}` : "---"}`
-            : `Pay ${token ? `${formatAmount(amountBaseUnits)} ${token.label}` : "---"}`;
+    ? "Depositing…"
+    : isPaying
+    ? "Paying…"
+    : isError
+    ? "Try again"
+    : needsDeposit
+    ? `Deposit ${
+        token && shortfallBaseUnits !== null
+          ? `${formatAmount(shortfallBaseUnits)} ${token.label}`
+          : "---"
+      }`
+    : `Pay ${
+        token ? `${formatAmount(amountBaseUnits)} ${token.label}` : "---"
+      }`;
 
   const handlePay = useCallback(async () => {
     if (!paymentLink) return;
@@ -425,7 +431,7 @@ export function PaymentReceiver({
       const walletAdapter = getWalletAdapter();
       const recipientResult = await PaymentLinksAPI.getRecipient(
         paymentId,
-        amountBaseUnits,
+        amountBaseUnits
       );
 
       if (!recipientResult.success || !recipientResult.data) {
@@ -659,7 +665,7 @@ export function PaymentReceiver({
               "flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors",
               stepConnect
                 ? "bg-primary/15 text-primary"
-                : "bg-muted text-muted-foreground",
+                : "bg-muted text-muted-foreground"
             )}
           >
             <Wallet className="size-3.5" aria-hidden />
@@ -672,8 +678,8 @@ export function PaymentReceiver({
               stepSign
                 ? "bg-primary/15 text-primary"
                 : stepPay
-                  ? "bg-muted text-muted-foreground"
-                  : "bg-muted/60 text-muted-foreground",
+                ? "bg-muted text-muted-foreground"
+                : "bg-muted/60 text-muted-foreground"
             )}
           >
             <FileSignature className="size-3.5" aria-hidden />
@@ -685,7 +691,7 @@ export function PaymentReceiver({
               "flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors",
               stepPay
                 ? "bg-primary/15 text-primary"
-                : "bg-muted/60 text-muted-foreground",
+                : "bg-muted/60 text-muted-foreground"
             )}
           >
             <Send className="size-3.5" aria-hidden />
@@ -706,8 +712,8 @@ export function PaymentReceiver({
                 paymentLink.amountType === "fixed"
                   ? undefined
                   : token
-                    ? getTokenStep(token)
-                    : "0.001"
+                  ? getTokenStep(token)
+                  : "0.001"
               }
               value={amount}
               readOnly={paymentLink.amountType === "fixed"}
@@ -860,7 +866,7 @@ export function PaymentReceiver({
           <div
             className={cn(
               "rounded-xl border border-primary/20 bg-black/40 shadow-[inset_0_0_20px_oklch(0.72_0.15_220/6%)] overflow-hidden h-16 flex flex-col transition-[opacity,transform] duration-200 ease-out",
-              activityExiting && "opacity-0 scale-[0.98] pointer-events-none",
+              activityExiting && "opacity-0 scale-[0.98] pointer-events-none"
             )}
           >
             <div className="flex items-center gap-2 border-b border-border/50 bg-muted/20 px-3 py-1 shrink-0">
@@ -890,7 +896,7 @@ export function PaymentReceiver({
                       "animate-log-line-in text-muted-foreground truncate",
                       line.startsWith("Error") && "text-red-400",
                       line.startsWith("Warn") && "text-amber-400",
-                      line.startsWith("Info") && "text-primary/90",
+                      line.startsWith("Info") && "text-primary/90"
                     )}
                   >
                     <span className="select-none text-muted-foreground/60">
@@ -924,7 +930,9 @@ export function PaymentReceiver({
                     <span className="text-muted-foreground">Relayer fee</span>
                     <span className="tabular-nums">
                       {token
-                        ? `${formatAmount(payFeeBreakdown.feeBaseUnits)} ${token.label}`
+                        ? `${formatAmount(payFeeBreakdown.feeBaseUnits)} ${
+                            token.label
+                          }`
                         : "---"}
                     </span>
                   </div>
@@ -935,7 +943,9 @@ export function PaymentReceiver({
                   </span>
                   <span className="font-semibold tabular-nums">
                     {token
-                      ? `${formatAmount(requiredPrivateBaseUnits)} ${token.label}`
+                      ? `${formatAmount(requiredPrivateBaseUnits)} ${
+                          token.label
+                        }`
                       : "---"}
                   </span>
                 </div>
@@ -947,7 +957,7 @@ export function PaymentReceiver({
                     <span
                       className={cn(
                         "font-semibold tabular-nums",
-                        "text-amber-500",
+                        "text-amber-500"
                       )}
                     >
                       {token
@@ -972,7 +982,7 @@ export function PaymentReceiver({
                 variant={isError ? "destructive" : "default"}
                 className={cn(
                   "h-11 w-full gap-2 rounded-lg text-sm font-semibold",
-                  !isError && "btn-neon bg-primary text-primary-foreground",
+                  !isError && "btn-neon bg-primary text-primary-foreground"
                 )}
               >
                 {isBusy && !isError ? (

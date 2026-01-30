@@ -19,7 +19,11 @@ Required vars:
 
 - `PORT` (default 4000)
 - `SOLANA_RPC_URL`
-- `KEY_BASE_PATH` (path to circuit files)
+ 
+Circuit files are loaded from the repo public directory:
+
+- `public/circuit2/transaction2.wasm`
+- `public/circuit2/transaction2.zkey`
 
 3. Run:
 
