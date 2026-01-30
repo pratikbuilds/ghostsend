@@ -849,7 +849,7 @@ export function PaymentReceiver({ paymentId, onSigningChange }: PaymentReceiverP
                 </div>
                 {needsDeposit && shortfallBaseUnits !== null && (
                   <div className="flex items-center justify-between pt-1">
-                    <span className="text-muted-foreground">Deposit (no fee)</span>
+                    <span className="text-muted-foreground">Deposit</span>
                     <span className={cn("font-semibold tabular-nums", "text-amber-500")}>
                       {token ? `${formatAmount(shortfallBaseUnits)} ${token.label}` : "—"}
                     </span>

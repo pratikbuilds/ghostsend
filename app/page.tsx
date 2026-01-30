@@ -41,7 +41,7 @@ export default function Page() {
 
       {/* Centered main content — fixed height so tab bar doesn't jump when switching tabs */}
       <main className="relative z-20 min-h-screen flex items-center justify-center px-4 py-20">
-        <div className="w-full max-w-xl h-[580px] flex flex-col">
+        <div className="w-full max-w-xl h-[640px] flex flex-col">
           <PaymentLinksManager />
         </div>
       </main>
