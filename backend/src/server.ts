@@ -275,7 +275,7 @@ async function buildSessionFromSignature(publicKeyStr: string, signatureBase64: 
 const app = Fastify({ logger: true });
 
 app.register(cors, {
-  origin: ["http://localhost:3000", "https://zoological-adaptation-production-2541.up.railway.app"],
+  origin: ["https://ghostsend.xyz"],
   methods: ["GET", "POST", "DELETE", "OPTIONS"],
 });
 
