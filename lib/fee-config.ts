@@ -15,6 +15,7 @@ export type RelayerConfig = {
   withdraw_fee_rate: number;
   withdraw_rent_fee: number;
   rent_fees: Record<string, number>;
+  minimum_withdrawal: Record<string, number>;
 };
 
 let configCache: RelayerConfig | null = null;
@@ -27,11 +28,15 @@ export async function getRelayerConfig(): Promise<RelayerConfig | null> {
     if (!res.ok) return null;
     const raw = (await res.json()) as Record<string, unknown>;
     configCache = {
-      withdraw_fee_rate: Number(raw.withdraw_fee_rate) || 0.0025,
-      withdraw_rent_fee: Number(raw.withdraw_rent_fee) ?? 0.001,
+      withdraw_fee_rate: Number(raw.withdraw_fee_rate) || 0.0035,
+      withdraw_rent_fee: Number(raw.withdraw_rent_fee) ?? 0.006,
       rent_fees:
         typeof raw.rent_fees === "object" && raw.rent_fees !== null
           ? (raw.rent_fees as Record<string, number>)
+          : {},
+      minimum_withdrawal:
+        typeof raw.minimum_withdrawal === "object" && raw.minimum_withdrawal !== null
+          ? (raw.minimum_withdrawal as Record<string, number>)
           : {},
     };
     return configCache;
@@ -40,11 +45,12 @@ export async function getRelayerConfig(): Promise<RelayerConfig | null> {
   }
 }
 
-/** Fallback config when relayer is unavailable (match SDK defaults). */
+/** Fallback config when relayer is unavailable (match docs: 0.35% + 0.006 SOL/recipient). */
 const FALLBACK: RelayerConfig = {
-  withdraw_fee_rate: 0.0025,
-  withdraw_rent_fee: 0.001,
+  withdraw_fee_rate: 0.0035,
+  withdraw_rent_fee: 0.006,
   rent_fees: {},
+  minimum_withdrawal: {},
 };
 
 /**
