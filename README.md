@@ -1,6 +1,10 @@
+<div align="center">
+
 # Ghostsend
 
 <img src="public/new_logo.png" alt="Ghostsend logo" width="160" />
+
+</div>
 
 A web application for private payments on Solana. It uses the [Privacy Cash](https://github.com/lightprotocol/privacy-cash) protocol so that senders and recipients can transact without exposing wallet addresses or amounts on-chain. The app provides a shareable payment-link flow and direct private transfers.
 
