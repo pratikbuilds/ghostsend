@@ -172,7 +172,7 @@ export function PaymentLinksManager() {
             activeTab !== "transfer" && "hidden"
           )}
         >
-          <PrivateTransfer />
+          <PrivateTransfer isActive={activeTab === "transfer"} />
         </TabsContent>
 
         <TabsContent

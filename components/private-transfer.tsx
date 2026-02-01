@@ -64,7 +64,12 @@ const MAX_RECIPIENTS = 5;
 type TransferStatus = "idle" | "checking" | "depositing" | "transferring" | "success" | "error";
 type RecipientEntry = { id: string; address: string; amount: string };
 
-export function PrivateTransfer() {
+export interface PrivateTransferProps {
+  /** When false, balance fetch (sign tx) is not triggered. Use when this component is mounted but the Transfer tab is not visible. */
+  isActive?: boolean;
+}
+
+export function PrivateTransfer({ isActive = true }: PrivateTransferProps) {
   const { publicKey, signMessage, signTransaction } = useWallet();
   const [connection] = useState(() => new Connection(RPC_URL, "confirmed"));
 
@@ -204,9 +209,9 @@ export function PrivateTransfer() {
   }, [connection, getPublicTokenBalance, getWalletAdapter, isSolToken, publicKey, token]);
 
   useEffect(() => {
-    if (!publicKey || !token || balancesChecked || status === "checking") return;
+    if (!isActive || !publicKey || !token || balancesChecked || status === "checking") return;
     fetchBalances();
-  }, [balancesChecked, fetchBalances, publicKey, status, token]);
+  }, [balancesChecked, fetchBalances, isActive, publicKey, status, token]);
 
   const formatAmount = useCallback(
     (baseUnits: number) => {
