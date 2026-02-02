@@ -6,7 +6,7 @@
 
 </div>
 
-A web application for private payments on Solana. It uses the [Privacy Cash](https://github.com/lightprotocol/privacy-cash) protocol so that senders and recipients can transact without exposing wallet addresses or amounts on-chain. The app provides a shareable payment-link flow and direct private transfers.
+A web application for private payments on Solana. It uses the [Privacy Cash](https://www.privacycash.org/) protocol so that senders and recipients can transact without exposing wallet addresses or amounts on-chain. The app provides a shareable payment-link flow and direct private transfers.
 
 ## Overview
 
