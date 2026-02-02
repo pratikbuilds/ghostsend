@@ -30,6 +30,7 @@ import {
 import {
   formatTokenAmount,
   getTokenByMint,
+  getTokenDenominations,
   getTokenStep,
   isSolMint,
   parseTokenAmountToBaseUnits,
@@ -222,6 +223,7 @@ export function PrivateTransfer({ isActive = true }: PrivateTransferProps) {
   );
 
   const tokenStep = useMemo(() => (token ? getTokenStep(token) : "0.001"), [token]);
+  const denominations = useMemo(() => (token ? getTokenDenominations(token) : []), [token]);
 
   const minimumBaseUnits = useMemo(() => {
     if (!token || !relayerConfig) return 0;
@@ -760,6 +762,31 @@ export function PrivateTransfer({ isActive = true }: PrivateTransferProps) {
                         )}
                       </div>
                     </div>
+                    {denominations.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {denominations.map((d) => {
+                          const dStr = String(d);
+                          const isActive = row.amount === dStr;
+                          return (
+                            <button
+                              key={d}
+                              type="button"
+                              className={cn(
+                                "text-xs px-2.5 py-0.5 rounded-full border transition-colors",
+                                isActive
+                                  ? "bg-primary text-primary-foreground border-primary"
+                                  : "bg-muted/20 text-muted-foreground border-border/50 hover:bg-muted/40"
+                              )}
+                              onClick={() =>
+                                updateRecipient(row.id, { amount: isActive ? "" : dStr })
+                              }
+                            >
+                              {d}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
                     {row.hasAddress && !row.isValidAddress && (
                       <p className="text-xs text-red-500">Invalid Solana address</p>
                     )}

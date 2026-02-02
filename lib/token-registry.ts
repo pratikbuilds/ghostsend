@@ -110,6 +110,19 @@ export function parseTokenAmountToBaseUnits(amount: string, token: TokenInfo) {
   return Math.floor(parsed * token.unitsPerToken);
 }
 
+const tokenDenominations: Record<string, number[]> = {
+  sol: [0.1, 0.5, 1, 5, 10, 50],
+  usdc: [10, 50, 100, 500, 1000, 5000],
+  usdt: [10, 50, 100, 500, 1000, 5000],
+  zec: [0.1, 0.5, 1, 5, 10],
+  ore: [1, 5, 10, 50, 100],
+  store: [1, 5, 10, 50, 100],
+};
+
+export function getTokenDenominations(token: TokenInfo): number[] {
+  return tokenDenominations[token.name] ?? [];
+}
+
 export function getTokenStep(token: TokenInfo) {
   const decimals = Math.min(token.decimals, 6);
   return decimals === 0 ? "1" : (1 / Math.pow(10, decimals)).toString();
