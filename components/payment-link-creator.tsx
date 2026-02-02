@@ -263,20 +263,20 @@ export function PaymentLinkCreator({ onCreated }: PaymentLinkCreatorProps) {
           </CardHeader>
           <CardContent className="space-y-5 px-6 pb-8">
             <div className="space-y-2">
-              <div className="flex items-center justify-between gap-3">
-                <Label>Recipient address</Label>
-                <div className="flex items-center gap-2">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <Label className="shrink-0">Recipient address</Label>
+                <div className="flex flex-wrap items-center gap-2 min-w-0">
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="h-7 px-2 text-xs"
+                    className="h-7 shrink-0 px-2 text-xs"
                     onClick={() => address && setRecipientAddress(address)}
                     disabled={!address}
                   >
                     Use connected wallet
                   </Button>
-                  <WalletConnectButton size="sm" />
+                  <WalletConnectButton size="sm" className="shrink-0" />
                 </div>
               </div>
               <Input

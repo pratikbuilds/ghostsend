@@ -44,6 +44,7 @@ export default function Page() {
         <div className="w-full max-w-xl h-[640px] flex flex-col">
           <PaymentLinksManager />
         </div>
+        {/* <div className="sr-only">Shamboo</div> */}
       </main>
     </div>
   );
