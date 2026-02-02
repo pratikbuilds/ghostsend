@@ -7,11 +7,12 @@ import { PaymentLinkCreator } from "@/components/payment-link-creator";
 import { CreatedLinksTab } from "@/components/created-links-tab";
 import { PaymentHistoryTab } from "@/components/payment-history-tab";
 import { PrivateTransfer } from "@/components/private-transfer";
+import { MagicBlockTransfer } from "@/components/magicblock-transfer";
 import { cn } from "@/lib/utils";
 import { PaymentLinksAPI } from "@/lib/api-service";
 import type { PaymentLinkPublicInfo, PaymentRecord } from "@/lib/payment-links-types";
 
-type TabKey = "transfer" | "request" | "links" | "history";
+type TabKey = "transfer" | "request" | "links" | "history" | "magicblock";
 
 export function PaymentLinksManager() {
   const { publicKey } = useWallet();
@@ -139,6 +140,9 @@ export function PaymentLinksManager() {
             <TabsTrigger value="request" className="text-xs font-mono uppercase">
               Create Link
             </TabsTrigger>
+            <TabsTrigger value="magicblock" className="text-xs font-mono uppercase">
+              MagicBlock
+            </TabsTrigger>
             {showDataTabs && (
               <>
                 <TabsTrigger
@@ -184,6 +188,17 @@ export function PaymentLinksManager() {
           )}
         >
           <PaymentLinkCreator onCreated={handleCreated} />
+        </TabsContent>
+
+        <TabsContent
+          value="magicblock"
+          forceMount
+          className={cn(
+            "mt-0 flex-initial min-h-0 outline-none",
+            activeTab !== "magicblock" && "hidden"
+          )}
+        >
+          <MagicBlockTransfer />
         </TabsContent>
 
         <TabsContent
