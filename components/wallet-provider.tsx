@@ -3,6 +3,7 @@
 import { UnifiedWalletProvider } from "@jup-ag/wallet-adapter";
 import type { ReactNode } from "react";
 import { toast } from "sonner";
+import { SOLANA_CLUSTER } from "@/lib/network-config";
 
 export function WalletProvider({ children }: { children: ReactNode }) {
   return (
@@ -10,7 +11,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       wallets={[]}
       config={{
         autoConnect: false,
-        env: "mainnet-beta",
+        env: SOLANA_CLUSTER,
         metadata: {
           name: "GhostSend",
           description: "GhostSend allows you to accept payments privately and anonymously.",
