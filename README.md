@@ -6,7 +6,7 @@
 
 </div>
 
-A web application for private payments on Solana. It uses the [Privacy Cash](https://www.privacycash.org/) protocol so that senders and recipients can transact without exposing wallet addresses or amounts on-chain. The app provides a shareable payment-link flow and direct private transfers.
+A unified interface for transferring assets privately. I built this for myself—as a user, I wanted one place to move assets with privacy. The app uses the [Privacy Cash](https://www.privacycash.org/) protocol so that senders and recipients can transact without exposing wallet addresses or amounts on-chain. It provides a shareable payment-link flow and direct private transfers. **Currently:** Magic Block integration in progress. More coming soon.
 
 ## Overview
 
