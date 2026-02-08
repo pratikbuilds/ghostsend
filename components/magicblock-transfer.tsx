@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { useWallet } from "@jup-ag/wallet-adapter";
-import { Connection, VersionedTransaction } from "@solana/web3.js";
+import { Connection, PublicKey, VersionedTransaction } from "@solana/web3.js";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,17 +11,10 @@ import { WalletConnectButton } from "@/components/wallet-button";
 import { cn } from "@/lib/utils";
 import {
   getConfig,
-  initializeGlobalVault,
-  initializeGlobalVaultAta,
-  initializeAta,
-  initializeEphemeralAta,
-  createEphemeralAtaPermission,
-  delegateEphemeralAtaPermission,
-  depositSplTokens,
-  delegateEphemeralAta,
-  transferSplTokens,
-  undelegateEphemeralAta,
-  withdrawSplTokens,
+  deposit,
+  transferAmount,
+  prepareWithdrawal,
+  withdraw,
   signAndSend,
   type MagicBlockConfig,
 } from "@/lib/magicblock-api";
@@ -33,12 +26,15 @@ import {
   ExternalLink,
   Settings,
   Wallet,
-  Shield,
   Send,
   ArrowDownToLine,
+  Shield,
 } from "lucide-react";
+import { RPC_URL, ER_ROUTER_URL, getSolscanUrl } from "@/lib/network-config";
+import { getTokenByMint, parseTokenAmountToBaseUnits } from "@/lib/token-registry";
 
-const RPC_URL = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com";
+const USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
+const DEFAULT_UNITS_PER_TOKEN = 1_000_000;
 
 type StepStatus = "idle" | "loading" | "success" | "error";
 
@@ -52,20 +48,11 @@ const INITIAL_STEP: StepState = { status: "idle" };
 
 const STEPS = [
   { key: "config", label: "Fetch Config", group: "Setup", icon: Settings },
-  { key: "initVault", label: "Initialize Global Vault", group: "Infrastructure", icon: Shield },
-  { key: "initVaultAta", label: "Initialize Global Vault ATA", group: "Infrastructure", icon: Shield },
-  { key: "initSenderAta", label: "Initialize Sender ATA", group: "User Accounts", icon: Wallet },
-  { key: "initReceiverAta", label: "Initialize Receiver ATA", group: "User Accounts", icon: Wallet },
-  { key: "initSenderEphemeral", label: "Initialize Sender Ephemeral ATA", group: "User Accounts", icon: Wallet },
-  { key: "initReceiverEphemeral", label: "Initialize Receiver Ephemeral ATA", group: "User Accounts", icon: Wallet },
-  { key: "createPermission", label: "Create Ephemeral ATA Permission", group: "Permissions", icon: Shield },
-  { key: "delegatePermission", label: "Delegate Ephemeral ATA Permission", group: "Permissions", icon: Shield },
-  { key: "deposit", label: "Deposit SPL Tokens", group: "Deposit & Delegate", icon: ArrowDownToLine },
-  { key: "delegateSender", label: "Delegate Sender Ephemeral ATA", group: "Deposit & Delegate", icon: Shield },
-  { key: "delegateReceiver", label: "Delegate Receiver Ephemeral ATA", group: "Deposit & Delegate", icon: Shield },
-  { key: "transfer", label: "Transfer SPL Tokens", group: "Transfer", icon: Send },
-  { key: "undelegate", label: "Undelegate Ephemeral ATA", group: "Withdraw", icon: Shield },
-  { key: "withdraw", label: "Withdraw SPL Tokens", group: "Withdraw", icon: ArrowDownToLine },
+  { key: "senderDeposit", label: "Sender Deposit", group: "Deposit", icon: ArrowDownToLine },
+  { key: "receiverInit", label: "Receiver Init", group: "Deposit", icon: Wallet },
+  { key: "transfer", label: "Transfer", group: "Transfer", icon: Send },
+  { key: "prepareWithdrawal", label: "Prepare Withdrawal", group: "Withdraw", icon: Shield },
+  { key: "withdraw", label: "Withdraw", group: "Withdraw", icon: ArrowDownToLine },
 ] as const;
 
 type StepKey = (typeof STEPS)[number]["key"];
@@ -73,13 +60,18 @@ type StepKey = (typeof STEPS)[number]["key"];
 export function MagicBlockTransfer() {
   const { publicKey, signTransaction } = useWallet();
   const [connection] = useState(() => new Connection(RPC_URL, "confirmed"));
+  const [erConnection] = useState(() => new Connection(ER_ROUTER_URL, "confirmed"));
 
-  const [mint, setMint] = useState("");
+  const [mint, setMint] = useState(USDC_MINT);
   const [receiver, setReceiver] = useState("");
   const [amount, setAmount] = useState("");
   const [config, setConfig] = useState<MagicBlockConfig | null>(null);
   const [steps, setSteps] = useState<Record<StepKey, StepState>>(
-    () => Object.fromEntries(STEPS.map((s) => [s.key, { ...INITIAL_STEP }])) as Record<StepKey, StepState>
+    () =>
+      Object.fromEntries(STEPS.map((s) => [s.key, { ...INITIAL_STEP }])) as Record<
+        StepKey,
+        StepState
+      >
   );
   const [expandedGroup, setExpandedGroup] = useState<string | null>("Setup");
 
@@ -87,14 +79,32 @@ export function MagicBlockTransfer() {
     setSteps((prev) => ({ ...prev, [key]: { ...prev[key], ...update } }));
   }, []);
 
+  const uiAmountToBaseUnits = useCallback(
+    (uiAmount: string): number => {
+      const token = getTokenByMint(mint);
+      if (token) {
+        const base = parseTokenAmountToBaseUnits(uiAmount, token);
+        return Number.isFinite(base) ? base : 0;
+      }
+      const parsed = Number(uiAmount);
+      return Number.isFinite(parsed) ? Math.floor(parsed * DEFAULT_UNITS_PER_TOKEN) : 0;
+    },
+    [mint]
+  );
+
   const execStep = useCallback(
-    async (key: StepKey, fn: () => Promise<VersionedTransaction | void>) => {
+    async (
+      key: StepKey,
+      fn: () => Promise<VersionedTransaction | void>,
+      sendConnection?: Connection
+    ) => {
       if (!signTransaction) return;
       updateStep(key, { status: "loading", error: undefined, signature: undefined });
+      const conn = sendConnection ?? connection;
       try {
         const result = await fn();
         if (result) {
-          const sig = await signAndSend(result, signTransaction, connection);
+          const sig = await signAndSend(result, signTransaction, conn);
           updateStep(key, { status: "success", signature: sig });
         } else {
           updateStep(key, { status: "success" });
@@ -109,11 +119,13 @@ export function MagicBlockTransfer() {
     [connection, signTransaction, updateStep]
   );
 
-  const payer = publicKey?.toBase58() ?? "";
-
   const handleStep = useCallback(
     async (key: StepKey) => {
       if (!publicKey || !signTransaction) return;
+
+      const mintPubkey = mint ? new PublicKey(mint) : null;
+      const receiverPubkey = receiver ? new PublicKey(receiver) : null;
+      const user = publicKey.toBase58();
 
       switch (key) {
         case "config":
@@ -130,41 +142,53 @@ export function MagicBlockTransfer() {
           }
           return;
 
-        case "initVault":
-          return execStep(key, () => initializeGlobalVault(payer, mint));
-        case "initVaultAta":
-          return execStep(key, () => initializeGlobalVaultAta(payer, mint));
-        case "initSenderAta":
-          return execStep(key, () => initializeAta(payer, payer, mint));
-        case "initReceiverAta":
-          return execStep(key, () => initializeAta(payer, receiver, mint));
-        case "initSenderEphemeral":
-          return execStep(key, () => initializeEphemeralAta(payer, payer, mint));
-        case "initReceiverEphemeral":
-          return execStep(key, () => initializeEphemeralAta(payer, receiver, mint));
-        case "createPermission":
-          return execStep(key, () => createEphemeralAtaPermission(payer, payer, mint));
-        case "delegatePermission":
-          return execStep(key, () => delegateEphemeralAtaPermission(payer, payer, mint));
-        case "deposit":
-          return execStep(key, () => depositSplTokens(payer, payer, mint, Number(amount)));
-        case "delegateSender":
-          return execStep(key, () => delegateEphemeralAta(payer, payer, mint));
-        case "delegateReceiver":
-          return execStep(key, () => delegateEphemeralAta(payer, receiver, mint));
+        case "senderDeposit":
+          if (!mintPubkey || !mint) return;
+          return execStep(key, () => deposit({ user, mint, amount: uiAmountToBaseUnits(amount) }));
+
+        case "receiverInit":
+          if (!mintPubkey || !receiverPubkey || !receiver) return;
+          return execStep(key, () => deposit({ user: receiver, mint, amount: 0 }));
+
         case "transfer":
-          return execStep(key, () => transferSplTokens(payer, receiver, mint, Number(amount)));
-        case "undelegate":
-          return execStep(key, () => undelegateEphemeralAta(payer, payer, mint));
+          if (!mintPubkey || !receiverPubkey || !receiver) return;
+          return execStep(
+            key,
+            () =>
+              transferAmount({
+                sender: user,
+                recipient: receiver,
+                mint,
+                amount: uiAmountToBaseUnits(amount),
+              }),
+            erConnection
+          );
+
+        case "prepareWithdrawal":
+          if (!mintPubkey) return;
+          return execStep(key, () => prepareWithdrawal({ user, mint }));
+
         case "withdraw":
-          return execStep(key, () => withdrawSplTokens(payer, mint, Number(amount)));
+          if (!mintPubkey) return;
+          return execStep(key, () =>
+            withdraw({ owner: user, user, mint, amount: uiAmountToBaseUnits(amount) })
+          );
       }
     },
-    [publicKey, signTransaction, execStep, updateStep, payer, mint, receiver, amount]
+    [
+      publicKey,
+      signTransaction,
+      execStep,
+      updateStep,
+      mint,
+      receiver,
+      amount,
+      erConnection,
+      uiAmountToBaseUnits,
+    ]
   );
 
-  // Group steps
-  const groups = STEPS.reduce<{ group: string; steps: typeof STEPS[number][] }[]>((acc, step) => {
+  const groups = STEPS.reduce<{ group: string; steps: (typeof STEPS)[number][] }[]>((acc, step) => {
     const last = acc[acc.length - 1];
     if (last && last.group === step.group) {
       last.steps.push(step);
@@ -185,12 +209,11 @@ export function MagicBlockTransfer() {
             MagicBlock Private SPL
           </CardTitle>
           <CardDescription className="text-sm text-muted-foreground">
-            Private ephemeral SPL token transfers via MagicBlock.
+            Private ephemeral SPL token transfers via MagicBlock PER API.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden px-6 pb-6">
           <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto overflow-x-hidden">
-            {/* Inputs */}
             <div className="space-y-3">
               <div className="flex items-center justify-between gap-3">
                 <Label>Parameters</Label>
@@ -218,10 +241,14 @@ export function MagicBlockTransfer() {
                   />
                 </div>
                 <div>
-                  <Label className="text-xs text-muted-foreground">Amount (base units)</Label>
+                  <Label className="text-xs text-muted-foreground">
+                    Amount (e.g. 1 for 1 USDC)
+                  </Label>
                   <Input
                     type="number"
-                    placeholder="1000000"
+                    placeholder="1"
+                    min={0}
+                    step="any"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
                     autoComplete="off"
@@ -230,25 +257,20 @@ export function MagicBlockTransfer() {
               </div>
             </div>
 
-            {/* Config display */}
             {config && (
               <div className="rounded-lg border border-border/50 bg-muted/10 px-3 py-2 text-xs font-mono space-y-0.5">
                 <p className="text-muted-foreground">
-                  <span className="text-foreground">program_id:</span> {config.program_id}
+                  <span className="text-foreground">endpoint:</span> {config.endpoint_url}
                 </p>
                 <p className="text-muted-foreground">
                   <span className="text-foreground">delegation:</span> {config.delegation_program}
                 </p>
                 <p className="text-muted-foreground">
-                  <span className="text-foreground">permission:</span> {config.permission_program}
-                </p>
-                <p className="text-muted-foreground">
-                  <span className="text-foreground">magic:</span> {config.magic_program}
+                  <span className="text-foreground">validator:</span> {config.default_validator}
                 </p>
               </div>
             )}
 
-            {/* Step groups */}
             <div className="space-y-1">
               {groups.map(({ group, steps: groupSteps }) => {
                 const isExpanded = expandedGroup === group;
@@ -269,9 +291,7 @@ export function MagicBlockTransfer() {
                         )}
                       />
                       <span className="text-sm font-medium flex-1">{group}</span>
-                      {groupDone && (
-                        <CheckCircle2 className="size-4 text-green-500 shrink-0" />
-                      )}
+                      {groupDone && <CheckCircle2 className="size-4 text-green-500 shrink-0" />}
                       {groupHasError && !groupDone && (
                         <XCircle className="size-4 text-red-500 shrink-0" />
                       )}
@@ -285,15 +305,27 @@ export function MagicBlockTransfer() {
                           const isSuccess = state.status === "success";
                           const isError = state.status === "error";
 
-                          // Determine if step should be disabled
                           const needsWallet = !publicKey;
                           const needsMint = step.key !== "config" && !mint;
                           const needsReceiver =
-                            ["initReceiverAta", "initReceiverEphemeral", "delegateReceiver", "transfer"].includes(step.key) &&
-                            !receiver;
+                            ["receiverInit", "transfer"].includes(step.key) && !receiver;
                           const needsAmount =
-                            ["deposit", "transfer", "withdraw"].includes(step.key) && !amount;
-                          const disabled = needsWallet || needsMint || needsReceiver || needsAmount || isLoading;
+                            ["senderDeposit", "transfer", "withdraw"].includes(step.key) && !amount;
+                          const disabled =
+                            needsWallet || needsMint || needsReceiver || needsAmount || isLoading;
+
+                          const getButtonText = () => {
+                            if (isLoading) return "…";
+                            if (isSuccess) return "Redo";
+                            if (isError) return "Retry";
+                            return "Run";
+                          };
+
+                          const getButtonVariant = () => {
+                            if (isError) return "destructive" as const;
+                            if (isSuccess) return "outline" as const;
+                            return "default" as const;
+                          };
 
                           return (
                             <div key={step.key} className="flex items-start gap-3">
@@ -309,12 +341,10 @@ export function MagicBlockTransfer() {
                                 )}
                               </div>
                               <div className="flex-1 min-w-0 space-y-1">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-sm">{step.label}</span>
-                                </div>
+                                <span className="text-sm">{step.label}</span>
                                 {state.signature && (
                                   <a
-                                    href={`https://solscan.io/tx/${state.signature}`}
+                                    href={getSolscanUrl(state.signature)}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
@@ -329,12 +359,12 @@ export function MagicBlockTransfer() {
                               </div>
                               <Button
                                 size="sm"
-                                variant={isError ? "destructive" : isSuccess ? "outline" : "default"}
+                                variant={getButtonVariant()}
                                 disabled={disabled}
                                 onClick={() => handleStep(step.key)}
                                 className="shrink-0"
                               >
-                                {isLoading ? "…" : isSuccess ? "Redo" : isError ? "Retry" : "Run"}
+                                {getButtonText()}
                               </Button>
                             </div>
                           );
