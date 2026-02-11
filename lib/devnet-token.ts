@@ -16,13 +16,13 @@ import {
   MINT_SIZE,
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
-import { RPC_URL } from "./network-config";
+import { MAGICBLOCK_API_ENDPOINT_URL } from "./network-config";
 
 // Use MagicBlock RPC for token operations (same as MagicBlock transfer)
-export const DEVNET_RPC_URL = RPC_URL;
+export const DEVNET_RPC_URL = MAGICBLOCK_API_ENDPOINT_URL;
 
 // Solana devnet RPC for airdrop (MagicBlock RPC doesn't support faucet)
-export const SOLANA_DEVNET_RPC_URL = "https://api.devnet.solana.com";
+export const SOLANA_DEVNET_RPC_URL = MAGICBLOCK_API_ENDPOINT_URL;
 
 export interface WalletAdapter {
   publicKey: PublicKey;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useWallet } from "@jup-ag/wallet-adapter";
 import { Connection, PublicKey, VersionedTransaction } from "@solana/web3.js";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -13,10 +13,12 @@ import {
   getConfig,
   deposit,
   transferAmount,
+  getTeeAuthToken,
   prepareWithdrawal,
   withdraw,
   signAndSend,
   type MagicBlockConfig,
+  type SendOptions,
 } from "@/lib/magicblock-api";
 import {
   Loader2,
@@ -30,7 +32,11 @@ import {
   ArrowDownToLine,
   Shield,
 } from "lucide-react";
-import { RPC_URL, ER_ROUTER_URL, getSolscanUrl } from "@/lib/network-config";
+import {
+  MAGICBLOCK_API_ENDPOINT_URL,
+  MAGICBLOCK_ER_ROUTER_URL,
+  getSolscanUrl,
+} from "@/lib/network-config";
 import { getTokenByMint, parseTokenAmountToBaseUnits } from "@/lib/token-registry";
 
 const USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
@@ -58,9 +64,9 @@ const STEPS = [
 type StepKey = (typeof STEPS)[number]["key"];
 
 export function MagicBlockTransfer() {
-  const { publicKey, signTransaction } = useWallet();
-  const [connection] = useState(() => new Connection(RPC_URL, "confirmed"));
-  const [erConnection] = useState(() => new Connection(ER_ROUTER_URL, "confirmed"));
+  const { publicKey, signMessage, signTransaction } = useWallet();
+  const [connection] = useState(() => new Connection(MAGICBLOCK_API_ENDPOINT_URL, "confirmed"));
+  const [erConnection] = useState(() => new Connection(MAGICBLOCK_ER_ROUTER_URL, "confirmed"));
 
   const [mint, setMint] = useState(USDC_MINT);
   const [receiver, setReceiver] = useState("");
@@ -74,6 +80,11 @@ export function MagicBlockTransfer() {
       >
   );
   const [expandedGroup, setExpandedGroup] = useState<string | null>("Setup");
+  const [teeAuthToken, setTeeAuthToken] = useState<string | null>(null);
+
+  useEffect(() => {
+    setTeeAuthToken(null);
+  }, [publicKey?.toBase58()]);
 
   const updateStep = useCallback((key: StepKey, update: Partial<StepState>) => {
     setSteps((prev) => ({ ...prev, [key]: { ...prev[key], ...update } }));
@@ -95,16 +106,25 @@ export function MagicBlockTransfer() {
   const execStep = useCallback(
     async (
       key: StepKey,
-      fn: () => Promise<VersionedTransaction | void>,
-      sendConnection?: Connection
+      fn: () => Promise<
+        VersionedTransaction | void | { transaction: VersionedTransaction; connection: Connection }
+      >,
+      sendConnection?: Connection,
+      sendOptions?: SendOptions
     ) => {
       if (!signTransaction) return;
       updateStep(key, { status: "loading", error: undefined, signature: undefined });
-      const conn = sendConnection ?? connection;
       try {
         const result = await fn();
         if (result) {
-          const sig = await signAndSend(result, signTransaction, conn);
+          const { transaction: tx, connection: txConn } =
+            typeof result === "object" && "transaction" in result && "connection" in result
+              ? result
+              : {
+                  transaction: result as VersionedTransaction,
+                  connection: sendConnection ?? connection,
+                };
+          const sig = await signAndSend(tx, signTransaction, txConn, sendOptions);
           updateStep(key, { status: "success", signature: sig });
         } else {
           updateStep(key, { status: "success" });
@@ -144,29 +164,59 @@ export function MagicBlockTransfer() {
 
         case "senderDeposit":
           if (!mintPubkey || !mint) return;
-          return execStep(key, () => deposit({ user, mint, amount: uiAmountToBaseUnits(amount) }));
+          return execStep(key, () =>
+            deposit({ user, payer: user, mint, amount: uiAmountToBaseUnits(amount) })
+          );
 
         case "receiverInit":
           if (!mintPubkey || !receiverPubkey || !receiver) return;
-          return execStep(key, () => deposit({ user: receiver, mint, amount: 0 }));
+          return execStep(key, () => deposit({ user: receiver, payer: user, mint, amount: 0 }));
 
         case "transfer":
-          if (!mintPubkey || !receiverPubkey || !receiver) return;
-          return execStep(
-            key,
-            () =>
-              transferAmount({
-                sender: user,
-                recipient: receiver,
-                mint,
-                amount: uiAmountToBaseUnits(amount),
-              }),
-            erConnection
-          );
+          if (!mintPubkey || !receiverPubkey || !receiver || !signMessage) return;
+          return execStep(key, async () => {
+            const { token } = await getTeeAuthToken(
+              MAGICBLOCK_ER_ROUTER_URL,
+              publicKey,
+              signMessage
+            );
+            setTeeAuthToken(token);
+            const tx = await transferAmount({
+              sender: user,
+              recipient: receiver,
+              mint,
+              amount: uiAmountToBaseUnits(amount),
+              auth_token: token,
+            });
+            const teeUrlWithToken = `${MAGICBLOCK_ER_ROUTER_URL}?token=${encodeURIComponent(token)}`;
+            return {
+              transaction: tx,
+              connection: new Connection(teeUrlWithToken, "confirmed"),
+            };
+          });
 
         case "prepareWithdrawal":
-          if (!mintPubkey) return;
-          return execStep(key, () => prepareWithdrawal({ user, mint }));
+          if (!mintPubkey || !signMessage) return;
+          return execStep(
+            key,
+            async () => {
+              const { token } = await getTeeAuthToken(
+                MAGICBLOCK_ER_ROUTER_URL,
+                publicKey!,
+                signMessage
+              );
+              setTeeAuthToken(token);
+              const tx = await prepareWithdrawal({ user, mint });
+              // Send signed tx to TEE (PER) with token — execStep uses this connection in signAndSend
+              const teeUrlWithToken = `${MAGICBLOCK_ER_ROUTER_URL}?token=${encodeURIComponent(token)}`;
+              return {
+                transaction: tx,
+                connection: new Connection(teeUrlWithToken, "confirmed"),
+              };
+            },
+            undefined,
+            { skipPreflight: true }
+          );
 
         case "withdraw":
           if (!mintPubkey) return;
@@ -177,6 +227,7 @@ export function MagicBlockTransfer() {
     },
     [
       publicKey,
+      signMessage,
       signTransaction,
       execStep,
       updateStep,
@@ -306,13 +357,19 @@ export function MagicBlockTransfer() {
                           const isError = state.status === "error";
 
                           const needsWallet = !publicKey;
+                          const needsSignMessage = step.key === "transfer" && !signMessage;
                           const needsMint = step.key !== "config" && !mint;
                           const needsReceiver =
                             ["receiverInit", "transfer"].includes(step.key) && !receiver;
                           const needsAmount =
                             ["senderDeposit", "transfer", "withdraw"].includes(step.key) && !amount;
                           const disabled =
-                            needsWallet || needsMint || needsReceiver || needsAmount || isLoading;
+                            needsWallet ||
+                            needsSignMessage ||
+                            needsMint ||
+                            needsReceiver ||
+                            needsAmount ||
+                            isLoading;
 
                           const getButtonText = () => {
                             if (isLoading) return "…";

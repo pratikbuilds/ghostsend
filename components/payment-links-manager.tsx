@@ -127,12 +127,23 @@ export function PaymentLinksManager() {
   );
 
   return (
-    <div className="h-full min-h-0 flex flex-col">
+    <div className="relative h-full min-h-0 flex flex-col">
       <Tabs
         value={activeTab}
         onValueChange={(value: string) => setActiveTab(value as TabKey)}
-        className="flex-1 flex flex-col min-h-0"
+        className="relative isolate flex-1 flex flex-col min-h-0"
       >
+        <div
+          aria-hidden
+          className={cn(
+            "magicblock-stage opacity-0 transition-opacity duration-500",
+            activeTab === "magicblock" && "opacity-100"
+          )}
+        >
+          <div className="magicblock-stage-wall" />
+          <div className="magicblock-stage-floor" />
+        </div>
+
         <div className="shrink-0 space-y-6">
           <TabsList variant="pill" className="mx-auto">
             <TabsTrigger value="transfer" className="text-xs font-mono uppercase">
@@ -198,7 +209,7 @@ export function PaymentLinksManager() {
           value="magicblock"
           forceMount
           className={cn(
-            "mt-0 flex-initial min-h-0 outline-none",
+            "relative z-10 mt-0 flex-initial min-h-0 outline-none",
             activeTab !== "magicblock" && "hidden"
           )}
         >
