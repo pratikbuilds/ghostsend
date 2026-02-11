@@ -33,14 +33,14 @@ export const metadata: Metadata = {
       "Send and receive private payments on Solana with zero-knowledge proofs. Your transactions, your privacy.",
     url: "https://ghostsend.xyz",
     siteName: "ghostsend",
-    images: ["/new_logo.png"],
+    images: ["/og.png"],
     type: "website",
   },
   twitter: {
     card: "summary",
     title: "ghostsend | Private Payments on Solana",
     description: "Send and receive private payments on Solana with zero-knowledge proofs.",
-    images: ["/new_logo.png"],
+    images: ["/og.png"],
   },
 };
 
