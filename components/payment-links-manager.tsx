@@ -7,11 +7,13 @@ import { PaymentLinkCreator } from "@/components/payment-link-creator";
 import { CreatedLinksTab } from "@/components/created-links-tab";
 import { PaymentHistoryTab } from "@/components/payment-history-tab";
 import { PrivateTransfer } from "@/components/private-transfer";
+import { MagicBlockTransfer } from "@/components/magicblock-transfer";
+import { DevnetTokenCreator } from "@/components/devnet-token-creator";
 import { cn } from "@/lib/utils";
 import { PaymentLinksAPI } from "@/lib/api-service";
 import type { PaymentLinkPublicInfo, PaymentRecord } from "@/lib/payment-links-types";
 
-type TabKey = "transfer" | "request" | "links" | "history";
+type TabKey = "transfer" | "request" | "links" | "history" | "magicblock" | "devnet";
 
 export function PaymentLinksManager() {
   const { publicKey } = useWallet();
@@ -125,12 +127,23 @@ export function PaymentLinksManager() {
   );
 
   return (
-    <div className="h-full min-h-0 flex flex-col">
+    <div className="relative h-full min-h-0 flex flex-col">
       <Tabs
         value={activeTab}
         onValueChange={(value: string) => setActiveTab(value as TabKey)}
-        className="flex-1 flex flex-col min-h-0"
+        className="relative isolate flex-1 flex flex-col min-h-0"
       >
+        <div
+          aria-hidden
+          className={cn(
+            "magicblock-stage opacity-0 transition-opacity duration-500",
+            activeTab === "magicblock" && "opacity-100"
+          )}
+        >
+          <div className="magicblock-stage-wall" />
+          <div className="magicblock-stage-floor" />
+        </div>
+
         <div className="shrink-0 space-y-6">
           <TabsList variant="pill" className="mx-auto">
             <TabsTrigger value="transfer" className="text-xs font-mono uppercase">
@@ -138,6 +151,12 @@ export function PaymentLinksManager() {
             </TabsTrigger>
             <TabsTrigger value="request" className="text-xs font-mono uppercase">
               Create Link
+            </TabsTrigger>
+            <TabsTrigger value="magicblock" className="text-xs font-mono uppercase">
+              MagicBlock
+            </TabsTrigger>
+            <TabsTrigger value="devnet" className="text-xs font-mono uppercase">
+              Devnet
             </TabsTrigger>
             {showDataTabs && (
               <>
@@ -184,6 +203,28 @@ export function PaymentLinksManager() {
           )}
         >
           <PaymentLinkCreator onCreated={handleCreated} />
+        </TabsContent>
+
+        <TabsContent
+          value="magicblock"
+          forceMount
+          className={cn(
+            "relative z-10 mt-0 flex-initial min-h-0 outline-none",
+            activeTab !== "magicblock" && "hidden"
+          )}
+        >
+          <MagicBlockTransfer />
+        </TabsContent>
+
+        <TabsContent
+          value="devnet"
+          forceMount
+          className={cn(
+            "mt-0 flex-initial min-h-0 outline-none",
+            activeTab !== "devnet" && "hidden"
+          )}
+        >
+          <DevnetTokenCreator />
         </TabsContent>
 
         <TabsContent
